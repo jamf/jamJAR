@@ -1,4 +1,7 @@
 # jamJAR
+
+[![jamJAR-logo](/images/jamJAR-200.png)]
+
 _I have a Jamf, I have a munki... uh... jamJAR!_
 
 #### Introduction
