@@ -6,7 +6,7 @@
   <em><small>I have a Jamf, I have a munki... uh... jamJAR!</small></em>
 </p>
 
-#### Introduction
+## Introduction
 
 jamJAR is a solution that applies out of the box thinking & lean methodologies to macOS "patch management".
 
