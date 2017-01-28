@@ -3,7 +3,7 @@
 <p align="center">
   <img src="/images/jamJAR-200.png">
   <br>
-  <em><small>I have a Jamf, I have a munki... uh... jamJAR!</small></em>
+  <em><small>I have a Jamf, I have a Munki... uh... jamJAR!</small></em>
 </p>
 
 ## Introduction
