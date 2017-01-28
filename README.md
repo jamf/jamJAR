@@ -1,6 +1,4 @@
 # jamJAR
-=====
-
 _I have a jamf, I have a munki... uh... jamJAR!_
 
 #### Buzzword introduction
