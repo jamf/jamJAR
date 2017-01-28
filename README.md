@@ -1,5 +1,5 @@
 # jamJAR
-_I have a jamf, I have a munki... uh... jamJAR!_
+_I have a Jamf, I have a munki... uh... jamJAR!_
 
 #### Introduction
 
