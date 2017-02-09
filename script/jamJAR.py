@@ -93,8 +93,8 @@ def main():
     else:
         run_managedsoftwareupdate_auto()
 
-    # If running under Self Service, then USERNAME is None
-    if not os.environ.get('USERNAME'):
+    # If running under Self Service, then USERNAME is None but we'll have a USER
+    if not os.environ.get('USERNAME') and os.environ.get('USER'):
         # Give feedback that items are uptodate
         process_uptodate()
 
