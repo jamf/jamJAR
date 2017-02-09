@@ -246,9 +246,10 @@ def process_warnings(warning_count):
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
 
     # Print & count warnings
-    # pylint: disable=unused-variable
-    for warnings in managed_install_report.get('Warnings'):
-        warning_count += 1
+    if os.path.exists(install_report_plist):
+        # pylint: disable=unused-variable
+        for warnings in managed_install_report.get('Warnings'):
+            warning_count += 1
 
     return warning_count
 
