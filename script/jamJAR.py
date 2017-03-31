@@ -32,7 +32,7 @@ SUPPORT FOR THIS PROGRAM
             https://macadmins.slack.com/messages/jamjar
             https://github.com/dataJAR/jamJAR
 
-DESCRIPTION
+DESCRIPTION v1.0.3
 
 I have a jamf, I have a munki... Uh!.. jamJAR
 '''
@@ -127,11 +127,9 @@ def update_counts():
     else:
         managed_install_report = {}
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
-
-    # Print & count warnings
-    for warnings in managed_install_report.get('Warnings'):
-        print 'Warning: %s' % warnings
-        warning_count += 1
+        for warnings in managed_install_report.get('Warnings'):
+            print 'Warning: %s' % warnings
+            warning_count += 1
 
     # Postflight policy text
     print 'Postflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' \
