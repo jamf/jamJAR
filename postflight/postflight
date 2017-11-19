@@ -32,7 +32,7 @@ SUPPORT FOR THIS PROGRAM
             https://macadmins.slack.com/messages/jamjar
             https://github.com/dataJAR/jamJAR
 
-DESCRIPTION
+DESCRIPTION v1.1
 
 I have a jamf, I have a munki... Uh!.. jamJAR
 '''
@@ -45,15 +45,15 @@ import subprocess
 import sys
 import time
 # pylint: disable=no-name-in-module
-from CoreFoundation import CFPreferencesCopyAppValue, \
-                       CFPreferencesGetAppBooleanValue, \
-                       CFPreferencesGetAppIntegerValue, \
-                       CFPreferencesSetValue,\
-                       CFPreferencesSynchronize,\
-                       kCFPreferencesAnyHost,\
-                       kCFPreferencesAnyUser
+from CoreFoundation import (CFPreferencesCopyAppValue,
+                            CFPreferencesGetAppIntegerValue,
+                            CFPreferencesSetValue,
+                            CFPreferencesSynchronize,
+                            kCFPreferencesAnyHost,
+                            kCFPreferencesAnyUser)
 # pylint: disable=no-name-in-module
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
+
 
 def main():
     ''' Main function. Check ManagedInstallReport to see if items installed, check against
@@ -84,15 +84,13 @@ def main():
     warning_count = process_warnings(warning_count)
     log_status(installed_items, removed_items, pending_items, warning_count)
 
-    # Edit manifest, if not in Munki mode & if UPDATE_MANIFEST is true,
-    # leaving only items that have not installed yet
-    if MUNKI_MODE is not True and UPDATE_MANIFEST is True:
+    # Edit manifest leaving only items that have not installed yet
+    if UPDATE_MANIFEST is True:
         update_client_manifest(jamjar_installs, jamjar_uninstalls)
 
-    # If we have something to notify about, are not in Munki mode update inventory
-    if MUNKI_MODE is not True:
-        if installed_items != 0 or removed_items != 0:
-            update_inventory()
+    # If we have something to notify about, update inventory
+    if installed_items != 0 or removed_items != 0:
+        update_inventory()
 
 
 def process_installs(jamjar_installs, installed_items):
@@ -117,6 +115,7 @@ def process_installs(jamjar_installs, installed_items):
 
     return (jamjar_installs, installed_items)
 
+
 def process_uninstalls(jamjar_uninstalls, removed_items):
     ''' Process uninstalls'''
 
@@ -137,6 +136,7 @@ def process_uninstalls(jamjar_uninstalls, removed_items):
                     removed_items += 1
 
     return (jamjar_uninstalls, removed_items)
+
 
 def process_pending(pending_items):
     ''' Process pending '''
@@ -160,10 +160,10 @@ def process_pending(pending_items):
             open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
 
     # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
-    CFPreferencesSetValue('pending_count', pending_items, 'uk.co.dataJAR.jamJAR', \
-                                         kCFPreferencesAnyUser, kCFPreferencesAnyHost)
-    CFPreferencesSynchronize('uk.co.dataJAR.jamJAR', kCFPreferencesAnyHost, \
-                                                     kCFPreferencesAnyUser)
+    CFPreferencesSetValue('pending_count', pending_items, 'uk.co.dataJAR.jamJAR',
+                          kCFPreferencesAnyUser, kCFPreferencesAnyHost)
+    CFPreferencesSynchronize('uk.co.dataJAR.jamJAR', kCFPreferencesAnyHost,
+                             kCFPreferencesAnyUser)
 
 
 def process_warnings(warning_count):
@@ -185,8 +185,11 @@ def send_installed_notification(item_display_name, item_version):
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
         notifier_args = ['su', '-l', username, '-c', '"{0}" -sender "{1}" -message "{2}" \
-                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
-         NOTIFIER_MSG_INSTALLED % (item_display_name, item_version.strip()), NOTIFIER_MSG_TITLE,)]
+                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID,
+                                                      NOTIFIER_MSG_INSTALLED % (item_display_name,
+                                                                                item_version.strip()
+                                                                               ),
+                                                      NOTIFIER_MSG_TITLE,)]
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
@@ -201,16 +204,16 @@ def send_pending_notification(the_msg):
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
         notifier_args = ['su', '-l', username, '-c', '"{0}" -sender "{1}" -message "{2}" \
-                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
-                                                          the_msg, NOTIFIER_MSG_TITLE,)]
+                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID,
+                                                      the_msg, NOTIFIER_MSG_TITLE,)]
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
 
 def log_status(installed_items, removed_items, pending_items, warning_count):
     ''' It's big it's heavy it's wood...'''
-    logging.info('%s installed, %s removed, %s pending, %s warnings', installed_items, \
-                                          removed_items, pending_items, warning_count)
+    logging.info('%s installed, %s removed, %s pending, %s warnings', installed_items,
+                 removed_items, pending_items, warning_count)
 
 
 def update_client_manifest(jamjar_installs, jamjar_uninstalls):
@@ -218,8 +221,8 @@ def update_client_manifest(jamjar_installs, jamjar_uninstalls):
     updated_client_manifest = {}
     updated_client_manifest['managed_installs'] = jamjar_installs
     updated_client_manifest['managed_uninstalls'] = jamjar_uninstalls
-    FoundationPlist.writePlist(updated_client_manifest, '%s/manifests/%s' % \
-                                           (MANAGED_INSTALL_DIR, MANIFEST))
+    FoundationPlist.writePlist(updated_client_manifest, '%s/manifests/%s' %
+                               (MANAGED_INSTALL_DIR, MANIFEST))
 
 
 def update_inventory():
@@ -245,10 +248,10 @@ if __name__ == "__main__":
     LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
     if LOG_FILE_DIR is None:
         LOG_FILE_DIR = '/var/log/'
-    NOTIFIER_MSG_INSTALLED = CFPreferencesCopyAppValue('notifier_msg_installed', \
-                                                         'uk.co.dataJAR.jamJAR')
-    NOTIFIER_MSG_NOPENDING = CFPreferencesCopyAppValue('notifier_msg_nopending', \
-                                                         'uk.co.dataJAR.jamJAR')
+    NOTIFIER_MSG_INSTALLED = CFPreferencesCopyAppValue('notifier_msg_installed',
+                                                       'uk.co.dataJAR.jamJAR')
+    NOTIFIER_MSG_NOPENDING = CFPreferencesCopyAppValue('notifier_msg_nopending',
+                                                       'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_NOPENDING is None:
         NOTIFIER_MSG_NOPENDING = 'No updates pending'
     if NOTIFIER_MSG_INSTALLED is None:
@@ -256,8 +259,8 @@ if __name__ == "__main__":
     NOTIFIER_MSG_PENDING = CFPreferencesCopyAppValue('notifier_msg_pending', 'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_PENDING is None:
         NOTIFIER_MSG_PENDING = 'Logout to complete pending updates'
-    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title', \
-                                                'uk.co.dataJAR.jamJAR')
+    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title',
+                                                   'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_TITLE is None:
         NOTIFIER_MSG_TITLE = 'jamJAR'
     NOTIFIER_PATH = CFPreferencesCopyAppValue('notifier_path', 'uk.co.dataJAR.jamJAR')
@@ -267,9 +270,6 @@ if __name__ == "__main__":
     NOTIFIER_SENDER_ID = CFPreferencesCopyAppValue('notifier_sender_id', 'uk.co.dataJAR.jamJAR')
     if NOTIFIER_SENDER_ID is None:
         NOTIFIER_SENDER_ID = 'com.jamfsoftware.selfservice'
-    # This key does not have defaults to set to, we'll deal with it later
-    MUNKI_MODE = CFPreferencesGetAppBooleanValue('munki_mode', 'uk.co.dataJAR.jamJAR', \
-                                                                              None)[0]
 
     # Create LOG_FILE_DIR if doesn't exist
     if not os.path.exists(LOG_FILE_DIR):
@@ -278,10 +278,11 @@ if __name__ == "__main__":
     # Configure logging to a file
     LOGGER = logging.getLogger()
     LOGGER.setLevel(logging.INFO)
-    HANDLER = logging.handlers.TimedRotatingFileHandler(os.path.join(LOG_FILE_DIR, \
-                                     'jamJAR.log'), 'midnight', backupCount=10)
-    FORMATTER = logging.Formatter('%(asctime)s %(levelname)s %(message)s', \
-                                              datefmt='%Y-%m-%d %H:%M:%S')
+    HANDLER = logging.handlers.TimedRotatingFileHandler(os.path.join(LOG_FILE_DIR,
+                                                                     'jamJAR.log'),
+                                                        'midnight', backupCount=10)
+    FORMATTER = logging.Formatter('%(asctime)s %(levelname)s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
     HANDLER.setFormatter(FORMATTER)
     LOGGER.addHandler(HANDLER)
 
@@ -326,39 +327,39 @@ if __name__ == "__main__":
             sys.exit(1)
         else:
             try:
-                CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' % \
-                               (MANAGED_INSTALL_DIR, 'CLIENT_MANIFEST.plist'))
+                CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
+                                                            (MANAGED_INSTALL_DIR,
+                                                             'CLIENT_MANIFEST.plist'))
             # pylint: disable=bare-except
             except:
                 logging.error('Cannot read any client manifests')
                 sys.exit(1)
     # If LocalOnlyManifest is declared, but does not exist exit.
-    elif MANIFEST is not None and not os.path.exists('%s/manifests/%s' % \
-                                       (MANAGED_INSTALL_DIR, MANIFEST)):
-        logging.warning('LocalOnlyManifest (%s) declared, but is missing', \
-                                                                 MANIFEST)
+    elif MANIFEST is not None and not os.path.exists('%s/manifests/%s' %
+                                                     (MANAGED_INSTALL_DIR, MANIFEST)):
+        logging.warning('LocalOnlyManifest (%s) declared, but is missing',
+                        MANIFEST)
         sys.exit(0)
     else:
         # If LocalOnlyManifest exists, try to read it
         try:
-            CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' % \
-                                           (MANAGED_INSTALL_DIR, MANIFEST))
+            CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
+                                                        (MANAGED_INSTALL_DIR, MANIFEST))
         # pylint: disable=bare-except
         except:
             logging.error('Cannot read LocalOnlyManifest')
             sys.exit(1)
 
-    # Try to locate jamf binary, if not in Munki mode
-    if MUNKI_MODE is not True:
-        if not os.path.exists('/usr/local/jamf/bin/jamf'):
-            logging.error('Cannot find jamf binary')
-            sys.exit(1)
+    # Try to locate jamf binary
+    if not os.path.exists('/usr/local/jamf/bin/jamf'):
+        logging.error('Cannot find jamf binary')
+        sys.exit(1)
 
     # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
-    PENDING_UPDATE_COUNT = CFPreferencesGetAppIntegerValue('PendingUpdateCount', \
-                                                     'ManagedInstalls', None)[0]
-    LAST_PENDING_COUNT = CFPreferencesGetAppIntegerValue('pending_count', \
-                                         'uk.co.dataJAR.jamJAR', None)[0]
+    PENDING_UPDATE_COUNT = CFPreferencesGetAppIntegerValue('PendingUpdateCount',
+                                                           'ManagedInstalls', None)[0]
+    LAST_PENDING_COUNT = CFPreferencesGetAppIntegerValue('pending_count',
+                                                         'uk.co.dataJAR.jamJAR', None)[0]
 
     # Gimme some main
     main()
