@@ -146,36 +146,44 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
     if sys.argv[4] == '':
         add_to_installs = None
     else:
-        add_to_installs = sys.argv[4]
-        jamjar_installs.append(add_to_installs)
-        print 'Adding %s to installs' % add_to_installs
+        installs = sys.argv[4]
+        installs_to_add = installs.split(', ')
+        for add_to_installs in installs_to_add:
+		    jamjar_installs.append(add_to_installs)
+		    print 'Adding %s to installs' % add_to_installs
 
     if sys.argv[5] == '':
         remove_from_installs = None
     else:
-        remove_from_installs = sys.argv[5]
-        try:
-            jamjar_installs.remove(remove_from_installs)
-            print 'Removed %s from installs' % remove_from_installs
-        except ValueError:
-            print '%s not in installs' % remove_from_installs
+        install_removals = sys.argv[5]
+        installs_to_remove = install_removals.split(', ')
+        for remove_from_installs in installs_to_remove:
+            try:
+                jamjar_installs.remove(remove_from_installs)
+                print 'Removed %s from installs' % remove_from_installs
+            except ValueError:
+                print '%s not in installs' % remove_from_installs
 
     if sys.argv[6] == '':
         add_to_uninstalls = None
     else:
-        add_to_uninstalls = sys.argv[6]
-        jamjar_uninstalls.append(add_to_uninstalls)
-        print 'Adding %s to uninstalls' % add_to_uninstalls
+        uninstalls = sys.argv[6]
+        uninstalls_to_add = uninstalls.split (', ')
+        for add_to_uninstalls in uninstalls_to_add:
+            jamjar_uninstalls.append(add_to_uninstalls)
+            print 'Adding %s to uninstalls' % add_to_uninstalls
 
     if sys.argv[7] == '':
         remove_from_uninstalls = None
     else:
-        remove_from_uninstalls = sys.argv[7]
-        try:
-            jamjar_uninstalls.remove(remove_from_uninstalls)
-            print 'Removed %s from uninstalls' % remove_from_uninstalls
-        except ValueError:
-            print '%s not in uninstalls' % remove_from_uninstalls
+        uninstall_removals = sys.argv[7]
+        uninstalls_to_remove = uninstall_removals.split (', ')
+        for remove_from_uninstalls in uninstalls_to_remove:
+            try:
+                jamjar_uninstalls.remove(remove_from_uninstalls)
+                print 'Removed %s from uninstalls' % remove_from_uninstalls
+            except ValueError:
+                print '%s not in uninstalls' % remove_from_uninstalls
 
     if sys.argv[8] != 'ENGAGE':
         yolo_mode = None
