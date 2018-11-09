@@ -1,6 +1,7 @@
 #!/usr/bin/python
+# pylint: disable=invalid-name
 '''
-Copyright (c) 2017, dataJAR Ltd.  All rights reserved.
+Copyright (c) 2018, dataJAR Ltd.  All rights reserved.
 
      Redistribution and use in source and binary forms, with or without
      modification, are permitted provided that the following conditions are met:
@@ -32,10 +33,15 @@ SUPPORT FOR THIS PROGRAM
             https://macadmins.slack.com/messages/jamjar
             https://github.com/dataJAR/jamJAR
 
-DESCRIPTION v1.1
+DESCRIPTION
 
 I have a jamf, I have a munki... Uh!.. jamJAR
 '''
+
+
+# Version
+__version__ = '1.2'
+
 
 # Standard imports
 import os
@@ -139,7 +145,7 @@ def update_counts():
         pending_count, warning_count)
 
 
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches, too-many-locals
 def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode):
     ''' Try & get parameters $4, $5, $6, $7, $8 & assign '''
 
@@ -149,8 +155,8 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         installs = sys.argv[4]
         installs_to_add = installs.split(', ')
         for add_to_installs in installs_to_add:
-		    jamjar_installs.append(add_to_installs)
-		    print 'Adding %s to installs' % add_to_installs
+            jamjar_installs.append(add_to_installs)
+            print 'Adding %s to installs' % add_to_installs
 
     if sys.argv[5] == '':
         remove_from_installs = None
@@ -168,7 +174,7 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         add_to_uninstalls = None
     else:
         uninstalls = sys.argv[6]
-        uninstalls_to_add = uninstalls.split (', ')
+        uninstalls_to_add = uninstalls.split(', ')
         for add_to_uninstalls in uninstalls_to_add:
             jamjar_uninstalls.append(add_to_uninstalls)
             print 'Adding %s to uninstalls' % add_to_uninstalls
@@ -177,7 +183,7 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         remove_from_uninstalls = None
     else:
         uninstall_removals = sys.argv[7]
-        uninstalls_to_remove = uninstall_removals.split (', ')
+        uninstalls_to_remove = uninstall_removals.split(', ')
         for remove_from_uninstalls in uninstalls_to_remove:
             try:
                 jamjar_uninstalls.remove(remove_from_uninstalls)
