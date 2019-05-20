@@ -32,7 +32,7 @@ SUPPORT FOR THIS PROGRAM
             https://macadmins.slack.com/messages/jamjar
             https://github.com/dataJAR/jamJAR
 
-DESCRIPTION v1.2b
+DESCRIPTION v1.2c
 
 I have a jamf, I have a munki... Uh!.. jamJAR
 '''
@@ -205,12 +205,14 @@ def send_pending_notification(the_msg):
 
 def log_status(installed_items, removed_items, pending_items, warning_count):
     ''' It's big it's heavy it's wood...'''
+
     logging.info('%s installed, %s removed, %s pending, %s warnings', installed_items,
                  removed_items, pending_items, warning_count)
 
 
 def update_client_manifest(jamjar_installs, jamjar_uninstalls):
     ''' Update manifest, leaving only items that have not installed/uninstalled yet'''
+
     updated_client_manifest = {}
     updated_client_manifest['managed_installs'] = jamjar_installs
     updated_client_manifest['managed_uninstalls'] = jamjar_uninstalls
@@ -223,10 +225,7 @@ def update_inventory():
         have a jamf binary, update inventory '''
 
     cmd = ['/usr/local/jamf/bin/jamf', 'recon']
-    try:
-        subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
-    except subprocess.CalledProcessError:
-        pass
+    subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
 
 
 if __name__ == "__main__":
@@ -241,14 +240,15 @@ if __name__ == "__main__":
     if LOG_FILE_DIR is None:
         LOG_FILE_DIR = '/var/log/'
     NOTIFIER_MSG_INSTALLED = CFPreferencesCopyAppValue('notifier_msg_installed',
-                                                       'uk.co.dataJAR.jamJAR')
+                                                       'uk.co.dataJAR.jamJAR').encode('utf-8')
     NOTIFIER_MSG_NOPENDING = CFPreferencesCopyAppValue('notifier_msg_nopending',
-                                                       'uk.co.dataJAR.jamJAR')
+                                                       'uk.co.dataJAR.jamJAR').encode('utf-8')
     if NOTIFIER_MSG_NOPENDING is None:
         NOTIFIER_MSG_NOPENDING = 'No updates pending'
     if NOTIFIER_MSG_INSTALLED is None:
         NOTIFIER_MSG_INSTALLED = '%s %s has been installed'
-    NOTIFIER_MSG_PENDING = CFPreferencesCopyAppValue('notifier_msg_pending', 'uk.co.dataJAR.jamJAR')
+    NOTIFIER_MSG_PENDING = CFPreferencesCopyAppValue('notifier_msg_pending', \
+                                     'uk.co.dataJAR.jamJAR').encode('utf-8')
     if NOTIFIER_MSG_PENDING is None:
         NOTIFIER_MSG_PENDING = 'Logout to complete pending updates'
     NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title',
