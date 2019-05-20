@@ -32,7 +32,7 @@ SUPPORT FOR THIS PROGRAM
             https://macadmins.slack.com/messages/jamjar
             https://github.com/dataJAR/jamJAR
 
-DESCRIPTION v1.1
+DESCRIPTION v1.2b
 
 I have a jamf, I have a munki... Uh!.. jamJAR
 '''
@@ -48,7 +48,6 @@ import time
 from CoreFoundation import (CFPreferencesCopyAppValue,
                             CFPreferencesGetAppIntegerValue,
                             CFPreferencesSetValue,
-                            CFPreferencesSynchronize,
                             kCFPreferencesAnyHost,
                             kCFPreferencesAnyUser)
 # pylint: disable=no-name-in-module
@@ -65,7 +64,6 @@ def main():
     installed_items = 0
     removed_items = 0
     pending_items = PENDING_UPDATE_COUNT
-    warning_count = 0
 
     # Get items in the LocalOnlyManifests managed_installs array
     if CLIENT_MANIFEST.get('managed_installs'):
@@ -81,7 +79,7 @@ def main():
     jamjar_installs, installed_items = process_installs(jamjar_installs, installed_items)
     jamjar_uninstalls, removed_items = process_uninstalls(jamjar_uninstalls, removed_items)
     process_pending(pending_items)
-    warning_count = process_warnings(warning_count)
+    warning_count = process_warnings()
     log_status(installed_items, removed_items, pending_items, warning_count)
 
     # Edit manifest leaving only items that have not installed yet
@@ -141,8 +139,8 @@ def process_uninstalls(jamjar_uninstalls, removed_items):
 def process_pending(pending_items):
     ''' Process pending '''
 
-	# Process pending items & notify if incremented, create/remove installatlogout
-	# file as needed
+    # Process pending items & notify if incremented, create/remove installatlogout
+    # file as needed
     if PENDING_UPDATE_COUNT > LAST_PENDING_COUNT:
         send_pending_notification(NOTIFIER_MSG_PENDING)
         if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
@@ -162,17 +160,12 @@ def process_pending(pending_items):
     # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
     CFPreferencesSetValue('pending_count', pending_items, 'uk.co.dataJAR.jamJAR',
                           kCFPreferencesAnyUser, kCFPreferencesAnyHost)
-    CFPreferencesSynchronize('uk.co.dataJAR.jamJAR', kCFPreferencesAnyHost,
-                             kCFPreferencesAnyUser)
 
 
-def process_warnings(warning_count):
-    ''' Check for any warnings, increment count '''
+def process_warnings():
+    ''' Return number of warnings '''
 
-    # pylint: disable=unused-variable
-    for warning in MANAGED_INSTALL_REPORT.get('Warnings'):
-        warning_count += 1
-    return warning_count
+    return len(MANAGED_INSTALL_REPORT.get('Warnings', []))
 
 
 def send_installed_notification(item_display_name, item_version):
@@ -232,8 +225,7 @@ def update_inventory():
     cmd = ['/usr/local/jamf/bin/jamf', 'recon']
     try:
         subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
-    # pylint: disable=bare-except
-    except:
+    except subprocess.CalledProcessError:
         pass
 
 
@@ -265,8 +257,8 @@ if __name__ == "__main__":
         NOTIFIER_MSG_TITLE = 'jamJAR'
     NOTIFIER_PATH = CFPreferencesCopyAppValue('notifier_path', 'uk.co.dataJAR.jamJAR')
     if NOTIFIER_PATH is None:
-        # pylint: disable=line-too-long
-        NOTIFIER_PATH = '/Library/Application Support/JAMF/bin/Management Action.app/Contents/MacOS/Management Action'
+        NOTIFIER_PATH = '/Library/Application Support/JAMF/bin/Management ' \
+                        'Action.app/Contents/MacOS/Management Action'
     NOTIFIER_SENDER_ID = CFPreferencesCopyAppValue('notifier_sender_id', 'uk.co.dataJAR.jamJAR')
     if NOTIFIER_SENDER_ID is None:
         NOTIFIER_SENDER_ID = 'com.jamfsoftware.selfservice'
@@ -292,8 +284,11 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         sys.path.append("/usr/local/munki")
-        # pylint: disable=import-error
-        from munkilib import FoundationPlist
+        try:
+            from munkilib import FoundationPlist
+        except ImportError:
+            logging.error('Cannot import FoundationPlist')
+            sys.exit(1)
 
     # Get location of the Managed Installs directory, exit if not found
     MANAGED_INSTALL_DIR = CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls')
@@ -310,7 +305,6 @@ if __name__ == "__main__":
         MANAGED_INSTALL_REPORT = FoundationPlist.readPlist(INSTALL_REPORT_PLIST)
 
     # Make sure a LocalOnlyManifest is specified, then grab the name
-    # pylint: disable=no-member
     MANIFEST = CFPreferencesCopyAppValue('LocalOnlyManifest', 'ManagedInstalls')
 
     # Some vars for tings & junk
@@ -330,8 +324,7 @@ if __name__ == "__main__":
                 CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
                                                             (MANAGED_INSTALL_DIR,
                                                              'CLIENT_MANIFEST.plist'))
-            # pylint: disable=bare-except
-            except:
+            except FoundationPlist.NSPropertyListSerializationException:
                 logging.error('Cannot read any client manifests')
                 sys.exit(1)
     # If LocalOnlyManifest is declared, but does not exist exit.
@@ -345,8 +338,7 @@ if __name__ == "__main__":
         try:
             CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
                                                         (MANAGED_INSTALL_DIR, MANIFEST))
-        # pylint: disable=bare-except
-        except:
+        except FoundationPlist.NSPropertyListSerializationException:
             logging.error('Cannot read LocalOnlyManifest')
             sys.exit(1)
 
