@@ -1,4 +1,4 @@
-#!/usr/local/munki/python
+#!/usr/bin/python
 '''
 Copyright (c) 2017, dataJAR Ltd.  All rights reserved.
 
@@ -38,8 +38,6 @@ I have a jamf, I have a munki... Uh!.. jamJAR
 '''
 
 # Standard imports
-from __future__ import absolute_import
-from __future__ import print_function
 import logging
 import logging.handlers
 import os
@@ -234,7 +232,7 @@ if __name__ == "__main__":
 
     # Make sure we're root
     if os.geteuid() != 0:
-        print('Error: This script must be run as root')
+        print 'Error: This script must be run as root'
         sys.exit(1)
 
     # Retrieve values for the below keys. If not set, set to defaults

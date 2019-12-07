@@ -1,4 +1,4 @@
-#!/usr/local/munki/python
+#!/usr/bin/python
 '''
 Copyright (c) 2017, dataJAR Ltd.  All rights reserved.
 
@@ -38,8 +38,6 @@ I have a jamf, I have a munki... Uh!.. jamJAR
 '''
 
 # Standard imports
-from __future__ import absolute_import
-from __future__ import print_function
 import os
 import subprocess
 # pylint: disable=no-name-in-module
@@ -52,7 +50,7 @@ def main():
     if os.path.exists(log_file_path):
         tail_log = subprocess.Popen(['/usr/bin/tail', '-1', log_file_path], stdout=subprocess.PIPE)
         last_line = tail_log.communicate()[0].rstrip()
-        print('<result>%s</result>' % last_line)
+        print '<result>%s</result>' % last_line
 
 
 if __name__ == "__main__":

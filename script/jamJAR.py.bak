@@ -1,4 +1,4 @@
-#!/usr/local/munki/python
+#!/usr/bin/python
 # pylint: disable=invalid-name
 '''
 Copyright (c) 2018, dataJAR Ltd.  All rights reserved.
@@ -40,8 +40,6 @@ I have a jamf, I have a munki... Uh!.. jamJAR
 
 
 # Version
-from __future__ import absolute_import
-from __future__ import print_function
 __version__ = '1.2'
 
 
@@ -91,13 +89,13 @@ def main():
     update_client_manifest(jamjar_installs, jamjar_uninstalls)
 
     # Preflight policy text
-    print('Preflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' % (
+    print 'Preflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' % (
         len(jamjar_installs), jamjar_installs, len(jamjar_uninstalls), jamjar_uninstalls,
-        pending_count, warning_count))
+        pending_count, warning_count)
 
     # Run managedsoftwareupdate
     if yolo_mode == 'ENGAGE':
-        print('WARNING: YOLO mode engaged')
+        print 'WARNING: YOLO mode engaged'
         run_managedsoftwareupdate_yolo()
     else:
         run_managedsoftwareupdate_auto()
@@ -133,18 +131,18 @@ def update_counts():
     # Check if ManagedInstallReport exists
     install_report_plist = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
     if not os.path.exists(install_report_plist):
-        print('ManagedInstallReport is missing')
+        print 'ManagedInstallReport is missing'
     else:
         managed_install_report = {}
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
         for warnings in managed_install_report.get('Warnings'):
-            print('Warning: %s' % warnings)
+            print 'Warning: %s' % warnings
             warning_count += 1
 
     # Postflight policy text
-    print('Postflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' % (
+    print 'Postflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' % (
         len(jamjar_installs), jamjar_installs, len(jamjar_uninstalls), jamjar_uninstalls,
-        pending_count, warning_count))
+        pending_count, warning_count)
 
 
 # pylint: disable=too-many-branches, too-many-locals
@@ -158,7 +156,7 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         installs_to_add = installs.split(', ')
         for add_to_installs in installs_to_add:
             jamjar_installs.append(add_to_installs)
-            print('Adding %s to installs' % add_to_installs)
+            print 'Adding %s to installs' % add_to_installs
 
     if sys.argv[5] == '':
         remove_from_installs = None
@@ -168,9 +166,9 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         for remove_from_installs in installs_to_remove:
             try:
                 jamjar_installs.remove(remove_from_installs)
-                print('Removed %s from installs' % remove_from_installs)
+                print 'Removed %s from installs' % remove_from_installs
             except ValueError:
-                print('%s not in installs' % remove_from_installs)
+                print '%s not in installs' % remove_from_installs
 
     if sys.argv[6] == '':
         add_to_uninstalls = None
@@ -179,7 +177,7 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         uninstalls_to_add = uninstalls.split(', ')
         for add_to_uninstalls in uninstalls_to_add:
             jamjar_uninstalls.append(add_to_uninstalls)
-            print('Adding %s to uninstalls' % add_to_uninstalls)
+            print 'Adding %s to uninstalls' % add_to_uninstalls
 
     if sys.argv[7] == '':
         remove_from_uninstalls = None
@@ -189,9 +187,9 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
         for remove_from_uninstalls in uninstalls_to_remove:
             try:
                 jamjar_uninstalls.remove(remove_from_uninstalls)
-                print('Removed %s from uninstalls' % remove_from_uninstalls)
+                print 'Removed %s from uninstalls' % remove_from_uninstalls
             except ValueError:
-                print('%s not in uninstalls' % remove_from_uninstalls)
+                print '%s not in uninstalls' % remove_from_uninstalls
 
     if sys.argv[8] != 'ENGAGE':
         yolo_mode = None
@@ -201,7 +199,7 @@ def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
     # Check that we have some values passed to the paremeters.. exit if not
     if (add_to_installs is None and remove_from_installs is None and add_to_uninstalls is None
             and remove_from_uninstalls is None and yolo_mode is None):
-        print('Nothing assigned to $4, $5, $6. $7 or $8... exiting...')
+        print 'Nothing assigned to $4, $5, $6. $7 or $8... exiting...'
         sys.exit(1)
 
     return user_name, jamjar_installs, jamjar_uninstalls, yolo_mode
@@ -226,7 +224,7 @@ def run_managedsoftwareupdate_yolo():
         subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
     # pylint: disable=bare-except
     except:
-        print('There was an error running managedsoftwareupdate --installonly')
+        print 'There was an error running managedsoftwareupdate --installonly'
         sys.exit(1)
 
     # Install all items, including pending
@@ -235,7 +233,7 @@ def run_managedsoftwareupdate_yolo():
         subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
     # pylint: disable=bare-except
     except:
-        print('There was an error running managedsoftwareupdate --installonly')
+        print 'There was an error running managedsoftwareupdate --installonly'
         sys.exit(1)
 
 
@@ -248,7 +246,7 @@ def run_managedsoftwareupdate_auto():
         subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
     # pylint: disable=bare-except
     except:
-        print('There was an error running managedsoftwareupdate --auto -m')
+        print 'There was an error running managedsoftwareupdate --auto -m'
         sys.exit(1)
 
 
@@ -258,7 +256,7 @@ def process_warnings(warning_count):
     # Check if ManagedInstallReport exists
     install_report_plist = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
     if not os.path.exists(install_report_plist):
-        print('ManagedInstallReport is missing')
+        print 'ManagedInstallReport is missing'
     else:
         managed_install_report = {}
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
@@ -310,7 +308,7 @@ if __name__ == "__main__":
 
     # Make sure we're root
     if os.geteuid() != 0:
-        print('Error: This script must be run as root')
+        print 'Error: This script must be run as root'
         sys.exit(1)
 
     # Retrieve values for the below keys. If not set, set to defaults
@@ -335,7 +333,7 @@ if __name__ == "__main__":
 
     # Exit if cannot find /usr/local/munki, if found import modules
     if not os.path.exists('/usr/local/munki'):
-        print('Cannot find /usr/local/munki')
+        print 'Cannot find /usr/local/munki'
         sys.exit(1)
     else:
         sys.path.append("/usr/local/munki")
@@ -345,7 +343,7 @@ if __name__ == "__main__":
     # Get location of the Managed Installs directory, exit if not found
     MANAGED_INSTALL_DIR = CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls')
     if MANAGED_INSTALL_DIR is None:
-        print('Cannot get Managed Installs directory...')
+        print 'Cannot get Managed Installs directory...'
         sys.exit(1)
 
     # Make sure a LocalOnlyManifest is specified, then grab the name
@@ -356,12 +354,12 @@ if __name__ == "__main__":
 
     # If no LocalOnlyManifest, then look for CLIENT_MANIFEST
     if MANIFEST is None:
-        print('Error: No LocalOnlyManifest declared...')
+        print 'Error: No LocalOnlyManifest declared...'
         sys.exit(1)
     # If LocalOnlyManifest is declared, but does not exist exit.
     elif MANIFEST is not None and not os.path.exists('%s/manifests/%s' %
                                                      (MANAGED_INSTALL_DIR, MANIFEST)):
-        print('LocalOnlyManifest (%s) declared, but is missing' % MANIFEST)
+        print 'LocalOnlyManifest (%s) declared, but is missing' % MANIFEST
     else:
         # If LocalOnlyManifest exists, try to read it
         try:
@@ -369,7 +367,7 @@ if __name__ == "__main__":
                                                         (MANAGED_INSTALL_DIR, MANIFEST))
         # pylint: disable=bare-except
         except:
-            print('Cannot read LocalOnlyManifest')
+            print 'Cannot read LocalOnlyManifest'
 
     # Gimme some main
     main()
