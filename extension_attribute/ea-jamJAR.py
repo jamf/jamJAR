@@ -32,7 +32,7 @@ SUPPORT FOR THIS PROGRAM
             https://macadmins.slack.com/messages/jamjar
             https://github.com/dataJAR/jamJAR
 
-DESCRIPTION v2.0
+DESCRIPTION
 
 I have a jamf, I have a munki... Uh!.. jamJAR
 '''
@@ -40,335 +40,27 @@ I have a jamf, I have a munki... Uh!.. jamJAR
 # Standard imports
 from __future__ import absolute_import
 from __future__ import print_function
-import logging
-import logging.handlers
 import os
 import subprocess
-import sys
-import time
 # pylint: disable=no-name-in-module
-from CoreFoundation import (CFPreferencesCopyAppValue,
-                            CFPreferencesGetAppIntegerValue,
-                            CFPreferencesSetValue,
-                            kCFPreferencesAnyHost,
-                            kCFPreferencesAnyUser)
-# pylint: disable=no-name-in-module
-from SystemConfiguration import SCDynamicStoreCopyConsoleUser
-
+from CoreFoundation import CFPreferencesCopyAppValue
 
 def main():
-    ''' Main function. Check ManagedInstallReport to see if items installed, check against
-        mainfest & alert if something installed or if we have installs pending '''
+    ''' Make sure that the jamJAR.log exists, & if it does... print the last line '''
 
-    # Some vars for tings & junk
-    jamjar_installs = []
-    jamjar_uninstalls = []
-    installed_items = 0
-    removed_items = 0
-    pending_items = PENDING_UPDATE_COUNT
-
-    # Get items in the LocalOnlyManifests managed_installs array
-    if CLIENT_MANIFEST.get('managed_installs'):
-        for items in CLIENT_MANIFEST.get('managed_installs'):
-            jamjar_installs.append(items)
-
-    # Get items in the LocalOnlyManifests managed_uninstalls array
-    if CLIENT_MANIFEST.get('managed_uninstalls'):
-        for items in CLIENT_MANIFEST.get('managed_uninstalls'):
-            jamjar_uninstalls.append(items)
-
-    # Process installs, uninstalls & pending items.. via their functions & log
-    jamjar_installs, installed_items = process_installs(jamjar_installs, installed_items)
-    jamjar_uninstalls, removed_items = process_uninstalls(jamjar_uninstalls, removed_items)
-    process_pending(pending_items)
-    warning_count = process_warnings()
-    log_status(installed_items, removed_items, pending_items, warning_count)
-
-    # Edit manifest leaving only items that have not installed yet
-    if UPDATE_MANIFEST is True:
-        update_client_manifest(jamjar_installs, jamjar_uninstalls)
-
-    # If we have something to notify about, update inventory
-    if installed_items != 0 or removed_items != 0:
-        update_inventory()
-
-
-def process_installs(jamjar_installs, installed_items):
-    ''' Process Installs '''
-
-    # Check to make sure that we have installs pending, notify if installed & remove
-    # from jamjar_installs, & increment count
-    if len(jamjar_installs) != 0:
-        if MANAGED_INSTALL_REPORT.get('InstallResults'):
-            for item in MANAGED_INSTALL_REPORT.get('InstallResults'):
-                if item['status'] == 0:
-                    if item['name'] in jamjar_installs:
-                        send_installed_notification(item['display_name'], item['version'])
-                        jamjar_installs.remove(item['name'])
-                        installed_items += 1
-        # If Munki doesn't have a newer item, it can be found in InstalledItems.
-        # Remove from jamjar_installs but do not notify
-        if MANAGED_INSTALL_REPORT.get('InstalledItems'):
-            for item in MANAGED_INSTALL_REPORT.get('InstalledItems'):
-                if item in jamjar_installs:
-                    jamjar_installs.remove(item)
-
-    return (jamjar_installs, installed_items)
-
-
-def process_uninstalls(jamjar_uninstalls, removed_items):
-    ''' Process uninstalls'''
-
-    # Check to make sure that we have uninstalls pending, if items uninstalled remove
-    # from jamjar_uninstalls & increment removals
-    if len(jamjar_uninstalls) != 0:
-        if MANAGED_INSTALL_REPORT.get('RemovalResults'):
-            for item in MANAGED_INSTALL_REPORT.get('RemovalResults'):
-                if item['status'] == 0:
-                    if item['name'] in jamjar_uninstalls:
-                        jamjar_uninstalls.remove(item['name'])
-                        removed_items += 1
-        # If an item has otherwise been removed
-        if MANAGED_INSTALL_REPORT.get('RemovedItems'):
-            for item in MANAGED_INSTALL_REPORT.get('RemovedItems'):
-                if item in jamjar_uninstalls:
-                    jamjar_uninstalls.remove(item)
-                    removed_items += 1
-
-    return (jamjar_uninstalls, removed_items)
-
-
-def process_pending(pending_items):
-    ''' Process pending '''
-
-    # Process pending items & notify if incremented, create/remove installatlogout
-    # file as needed
-    if PENDING_UPDATE_COUNT > LAST_PENDING_COUNT:
-        send_pending_notification(NOTIFIER_MSG_PENDING)
-        if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
-            open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
-    elif PENDING_UPDATE_COUNT == 0 and LAST_PENDING_COUNT > PENDING_UPDATE_COUNT:
-        time.sleep(10)
-        send_pending_notification(NOTIFIER_MSG_NOPENDING)
-        if os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
-            os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
-    elif PENDING_UPDATE_COUNT == 0:
-        if os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
-            os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
-    else:
-        if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
-            open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
-
-    # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
-    CFPreferencesSetValue('pending_count', pending_items, 'uk.co.dataJAR.jamJAR',
-                          kCFPreferencesAnyUser, kCFPreferencesAnyHost)
-
-
-def process_warnings():
-    ''' Return number of warnings '''
-
-    return len(MANAGED_INSTALL_REPORT.get('Warnings', []))
-
-
-def send_installed_notification(item_display_name, item_version):
-    '''Check if the defined notifier app exists, & some is logged in
-       before trying to send a notification. Only sent when installed '''
-
-    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
-    if os.path.exists(NOTIFIER_PATH) and username:
-        #    item_name  - example: OracleJava8
-        #    item_display_name - example: Oracle Java 8
-        #    item_version - example: 1.8.111.14
-
-        # decode encoded string before passing parameters
-        message_str = NOTIFIER_MSG_INSTALLED.decode()
-
-        # pass parameters to now decoded string
-        message_str = message_str % (item_display_name, item_version.strip())
-
-        # take decoded notification message and add to arguments for message
-        args_str = (f'"{NOTIFIER_PATH}" -sender "{NOTIFIER_SENDER_ID}" '
-                    f'-message "{message_str}" -title "{NOTIFIER_MSG_TITLE}"')
-
-        # pass configured arguments to final subprocess call args
-        notifier_args = ['su', '-l', username, '-c', args_str]
-
-        # Send notification
-        subprocess.call(notifier_args, close_fds=True)
-
-
-def send_pending_notification(the_msg):
-    '''Check if the defined notifier app exists, & some is logged in
-       before trying to send a notification. Only sent when something pending '''
-
-    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
-    if os.path.exists(NOTIFIER_PATH) and username:
-        #    item_name  - example: OracleJava8
-        #    item_display_name - example: Oracle Java 8
-        #    item_version - example: 1.8.111.14
-
-        #decode encoded string before passing parameters
-        message_str = NOTIFIER_MSG_PENDING.decode()
-
-        args_str = (f'"{NOTIFIER_PATH}" -sender "{NOTIFIER_SENDER_ID}" '
-                    f'-message "{message_str}" -title "{NOTIFIER_MSG_TITLE}"')
-
-        # pass configured arguments to final subprocess call args
-        notifier_args = ['su', '-l', username, '-c', args_str]
-
-        # Send notification
-        subprocess.call(notifier_args, close_fds=True)
-
-
-def log_status(installed_items, removed_items, pending_items, warning_count):
-    ''' It's big it's heavy it's wood...'''
-
-    logging.info('%s installed, %s removed, %s pending, %s warnings', installed_items,
-                 removed_items, pending_items, warning_count)
-
-
-def update_client_manifest(jamjar_installs, jamjar_uninstalls):
-    ''' Update manifest, leaving only items that have not installed/uninstalled yet'''
-
-    updated_client_manifest = {}
-    updated_client_manifest['managed_installs'] = jamjar_installs
-    updated_client_manifest['managed_uninstalls'] = jamjar_uninstalls
-    FoundationPlist.writePlist(updated_client_manifest, '%s/manifests/%s' %
-                               (MANAGED_INSTALL_DIR, MANIFEST))
-
-
-def update_inventory():
-    ''' If we have something to notify about, are not in Munki mode &
-        have a jamf binary, update inventory '''
-
-    cmd = ['/usr/local/jamf/bin/jamf', 'recon']
-    subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
+    log_file_path = os.path.join(LOG_FILE_DIR, 'jamJAR.log')
+    if os.path.exists(log_file_path):
+        tail_log = subprocess.Popen(['/usr/bin/tail', '-1', log_file_path], stdout=subprocess.PIPE)
+        last_line = tail_log.communicate()[0].rstrip()
+        print('<result>%s</result>' % last_line)
 
 
 if __name__ == "__main__":
-
-    # Make sure we're root
-    if os.geteuid() != 0:
-        print('Error: This script must be run as root')
-        sys.exit(1)
 
     # Retrieve values for the below keys. If not set, set to defaults
     LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
     if LOG_FILE_DIR is None:
         LOG_FILE_DIR = '/var/log/'
-    NOTIFIER_MSG_INSTALLED = CFPreferencesCopyAppValue('notifier_msg_installed',
-                                                       'uk.co.dataJAR.jamJAR').encode('utf-8')
-    NOTIFIER_MSG_NOPENDING = CFPreferencesCopyAppValue('notifier_msg_nopending',
-                                                       'uk.co.dataJAR.jamJAR').encode('utf-8')
-    if NOTIFIER_MSG_NOPENDING is None:
-        NOTIFIER_MSG_NOPENDING = 'No updates pending'
-    if NOTIFIER_MSG_INSTALLED is None:
-        NOTIFIER_MSG_INSTALLED = '%s %s has been installed'
-    NOTIFIER_MSG_PENDING = CFPreferencesCopyAppValue('notifier_msg_pending', \
-                                     'uk.co.dataJAR.jamJAR').encode('utf-8')
-    if NOTIFIER_MSG_PENDING is None:
-        NOTIFIER_MSG_PENDING = 'Logout to complete pending updates'
-    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title',
-                                                   'uk.co.dataJAR.jamJAR')
-    if NOTIFIER_MSG_TITLE is None:
-        NOTIFIER_MSG_TITLE = 'jamJAR'
-    NOTIFIER_PATH = CFPreferencesCopyAppValue('notifier_path', 'uk.co.dataJAR.jamJAR')
-    if NOTIFIER_PATH is None:
-        NOTIFIER_PATH = '/Library/Application Support/JAMF/bin/Management ' \
-                        'Action.app/Contents/MacOS/Management Action'
-    NOTIFIER_SENDER_ID = CFPreferencesCopyAppValue('notifier_sender_id', 'uk.co.dataJAR.jamJAR')
-    if NOTIFIER_SENDER_ID is None:
-        NOTIFIER_SENDER_ID = 'com.jamfsoftware.selfservice'
-
-    # Create LOG_FILE_DIR if doesn't exist
-    if not os.path.exists(LOG_FILE_DIR):
-        os.makedirs(LOG_FILE_DIR)
-
-    # Configure logging to a file
-    LOGGER = logging.getLogger()
-    LOGGER.setLevel(logging.INFO)
-    HANDLER = logging.handlers.TimedRotatingFileHandler(os.path.join(LOG_FILE_DIR,
-                                                                     'jamJAR.log'),
-                                                        'midnight', backupCount=10)
-    FORMATTER = logging.Formatter('%(asctime)s %(levelname)s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    HANDLER.setFormatter(FORMATTER)
-    LOGGER.addHandler(HANDLER)
-
-    # Exit if cannot find /usr/local/munki, if found import modules
-    if not os.path.exists('/usr/local/munki'):
-        logging.error('Cannot find /usr/local/munki')
-        sys.exit(1)
-    else:
-        sys.path.append("/usr/local/munki")
-        try:
-            from munkilib import FoundationPlist
-        except ImportError:
-            logging.error('Cannot import FoundationPlist')
-            sys.exit(1)
-
-    # Get location of the Managed Installs directory, exit if not found
-    MANAGED_INSTALL_DIR = CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls')
-    if MANAGED_INSTALL_DIR is None:
-        logging.warning('Cannot get Managed Installs directory...')
-        sys.exit(0)
-    # Check if ManagedInstallReport exists
-    INSTALL_REPORT_PLIST = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
-    if not os.path.exists(INSTALL_REPORT_PLIST):
-        logging.warning('ManagedInstallReport is missing')
-        sys.exit(0)
-    else:
-        MANAGED_INSTALL_REPORT = {}
-        MANAGED_INSTALL_REPORT = FoundationPlist.readPlist(INSTALL_REPORT_PLIST)
-
-    # Make sure a LocalOnlyManifest is specified, then grab the name
-    MANIFEST = CFPreferencesCopyAppValue('LocalOnlyManifest', 'ManagedInstalls')
-
-    # Some vars for tings & junk
-    CLIENT_MANIFEST = {}
-    UPDATE_MANIFEST = True
-
-    # If no LocalOnlyManifest, then look for CLIENT_MANIFEST. Try to read it. Error
-    # out if cannot
-    if MANIFEST is None:
-        MANIFEST = '%s/manifests/%s' % (MANAGED_INSTALL_DIR, 'CLIENT_MANIFEST.plist')
-        UPDATE_MANIFEST = False
-        if not os.path.exists(MANIFEST):
-            logging.error('Cannot find any client manifests')
-            sys.exit(1)
-        else:
-            try:
-                CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
-                                                            (MANAGED_INSTALL_DIR,
-                                                             'CLIENT_MANIFEST.plist'))
-            except FoundationPlist.NSPropertyListSerializationException:
-                logging.error('Cannot read any client manifests')
-                sys.exit(1)
-    # If LocalOnlyManifest is declared, but does not exist exit.
-    elif MANIFEST is not None and not os.path.exists('%s/manifests/%s' %
-                                                     (MANAGED_INSTALL_DIR, MANIFEST)):
-        logging.warning('LocalOnlyManifest (%s) declared, but is missing',
-                        MANIFEST)
-        sys.exit(0)
-    else:
-        # If LocalOnlyManifest exists, try to read it
-        try:
-            CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
-                                                        (MANAGED_INSTALL_DIR, MANIFEST))
-        except FoundationPlist.NSPropertyListSerializationException:
-            logging.error('Cannot read LocalOnlyManifest')
-            sys.exit(1)
-
-    # Try to locate jamf binary
-    if not os.path.exists('/usr/local/jamf/bin/jamf'):
-        logging.error('Cannot find jamf binary')
-        sys.exit(1)
-
-    # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
-    PENDING_UPDATE_COUNT = CFPreferencesGetAppIntegerValue('PendingUpdateCount',
-                                                           'ManagedInstalls', None)[0]
-    LAST_PENDING_COUNT = CFPreferencesGetAppIntegerValue('pending_count',
-                                                         'uk.co.dataJAR.jamJAR', None)[0]
 
     # Gimme some main
     main()
