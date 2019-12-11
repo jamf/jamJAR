@@ -52,7 +52,8 @@ def main():
     if os.path.exists(log_file_path):
         tail_log = subprocess.Popen(['/usr/bin/tail', '-1', log_file_path], stdout=subprocess.PIPE)
         last_line = tail_log.communicate()[0].rstrip()
-        print('<result>%s</result>' % last_line)
+        result_str = last_line.decode("utf-8")
+        print(f'<result>{result_str}</result>')
 
 
 if __name__ == "__main__":
