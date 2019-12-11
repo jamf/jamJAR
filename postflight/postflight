@@ -179,12 +179,20 @@ def send_installed_notification(item_display_name, item_version):
         #    item_name  - example: OracleJava8
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
-        notifier_args = ['su', '-l', username, '-c', '"{0}" -sender "{1}" -message "{2}" \
-                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID,
-                                                      NOTIFIER_MSG_INSTALLED % (item_display_name,
-                                                                                item_version.strip()
-                                                                               ),
-                                                      NOTIFIER_MSG_TITLE,)]
+
+        # decode encoded string before passing parameters
+        message_str = NOTIFIER_MSG_INSTALLED.decode()
+
+        # pass parameters to now decoded string
+        message_str = message_str % (item_display_name, item_version.strip())
+
+        # take decoded notification message and add to arguments for message
+        args_str = (f'"{NOTIFIER_PATH}" -sender "{NOTIFIER_SENDER_ID}" '
+                    f'-message "{message_str}" -title "{NOTIFIER_MSG_TITLE}"')
+
+        # pass configured arguments to final subprocess call args
+        notifier_args = ['su', '-l', username, '-c', args_str]
+
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
@@ -198,9 +206,16 @@ def send_pending_notification(the_msg):
         #    item_name  - example: OracleJava8
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
-        notifier_args = ['su', '-l', username, '-c', '"{0}" -sender "{1}" -message "{2}" \
-                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID,
-                                                      the_msg, NOTIFIER_MSG_TITLE,)]
+
+        #decode encoded string before passing parameters
+        message_str = NOTIFIER_MSG_PENDING.decode()
+
+        args_str = (f'"{NOTIFIER_PATH}" -sender "{NOTIFIER_SENDER_ID}" '
+                    f'-message "{message_str}" -title "{NOTIFIER_MSG_TITLE}"')
+
+        # pass configured arguments to final subprocess call args
+        notifier_args = ['su', '-l', username, '-c', args_str]
+
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
