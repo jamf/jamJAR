@@ -1,6 +1,6 @@
 #!/usr/local/munki/python
 # pylint: disable=invalid-name
-'''
+"""
 Copyright (c) 2019, dataJAR Ltd.  All rights reserved.
 
      Redistribution and use in source and binary forms, with or without
@@ -36,48 +36,53 @@ SUPPORT FOR THIS PROGRAM
 DESCRIPTION
 
 I have a jamf, I have a munki... Uh!.. jamJAR
-'''
+"""
 
 
 # Version
-from __future__ import absolute_import
-from __future__ import print_function
-__version__ = '2.0'
-
+from __future__ import absolute_import, print_function
 
 # Standard imports
 import os
 import subprocess
 import sys
+
 # pylint: disable=no-name-in-module
 from CoreFoundation import (CFPreferencesCopyAppValue,
                             CFPreferencesGetAppIntegerValue)
 # pylint: disable=no-name-in-module
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
+__version__ = "2.0"
+
+
+
+
+
 
 def main():
-    ''' Check paramters & update manifest as needed, send alert if ran via Self Service &
-        uptodate. Force install if wanted. '''
+    """ Check paramters & update manifest as needed, send alert if ran via Self Service &
+        uptodate. Force install if wanted. """
 
     # Some vars for tings & junk
     jamjar_installs = []
     jamjar_uninstalls = []
-    user_name = ''
+    user_name = ""
     warning_count = 0
-    yolo_mode = ''
+    yolo_mode = ""
 
     # Get items in the LocalOnlyManifests managed_installs array
-    if CLIENT_MANIFEST.get('managed_installs'):
-        for items in CLIENT_MANIFEST.get('managed_installs'):
+    if CLIENT_MANIFEST.get("managed_installs"):
+        for items in CLIENT_MANIFEST.get("managed_installs"):
             jamjar_installs.append(items)
-    if CLIENT_MANIFEST.get('managed_uninstalls'):
-        for items in CLIENT_MANIFEST.get('managed_uninstalls'):
+    if CLIENT_MANIFEST.get("managed_uninstalls"):
+        for items in CLIENT_MANIFEST.get("managed_uninstalls"):
             jamjar_uninstalls.append(items)
 
     # Processes parameters
     user_name, jamjar_installs, jamjar_uninstalls, yolo_mode = process_parameters(
-        user_name, jamjar_installs, jamjar_uninstalls, yolo_mode)
+        user_name, jamjar_installs, jamjar_uninstalls, yolo_mode
+    )
 
     # Remove any duplicate entries in jamjar_installs & jamjar_uninstalls
     jamjar_installs = list(set(jamjar_installs))
@@ -85,25 +90,26 @@ def main():
     warning_count = process_warnings(warning_count)
 
     # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
-    pending_count = CFPreferencesGetAppIntegerValue('PendingUpdateCount',
-                                                    'ManagedInstalls', None)[0]
+    pending_count = CFPreferencesGetAppIntegerValue(
+        "PendingUpdateCount", "ManagedInstalls", None
+    )[0]
     # Update manifest
     update_client_manifest(jamjar_installs, jamjar_uninstalls)
 
     # Preflight policy text
-    print('Preflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' % (
-        len(jamjar_installs), jamjar_installs, len(jamjar_uninstalls), jamjar_uninstalls,
-        pending_count, warning_count))
+    print(
+        f"Preflight: Contains {len(jamjar_installs)} installs {jamjar_installs}, {len(jamjar_uninstalls)} uninstalls {jamjar_uninstalls}, {pending_count} pending, {warning_count} warnings"
+    )
 
     # Run managedsoftwareupdate
-    if yolo_mode == 'ENGAGE':
-        print('WARNING: YOLO mode engaged')
+    if yolo_mode == "ENGAGE":
+        print("WARNING: YOLO mode engaged")
         run_managedsoftwareupdate_yolo()
     else:
         run_managedsoftwareupdate_auto()
 
     # If running under Self Service, then USERNAME is None but we'll have a USER
-    if not os.environ.get('USERNAME') and os.environ.get('USER'):
+    if not os.environ.get("USERNAME") and os.environ.get("USER"):
         # Give feedback that items are uptodate
         process_uptodate()
 
@@ -112,7 +118,7 @@ def main():
 
 
 def update_counts():
-    ''' Update counts for policy log '''
+    """ Update counts for policy log """
 
     # Some vars for tings & junk
     jamjar_installs = []
@@ -120,145 +126,152 @@ def update_counts():
     warning_count = 0
 
     # Get items in the LocalOnlyManifests managed_installs array
-    if CLIENT_MANIFEST.get('managed_installs'):
-        for items in CLIENT_MANIFEST.get('managed_installs'):
+    if CLIENT_MANIFEST.get("managed_installs"):
+        for items in CLIENT_MANIFEST.get("managed_installs"):
             jamjar_installs.append(items)
-    if CLIENT_MANIFEST.get('managed_uninstalls'):
-        for items in CLIENT_MANIFEST.get('managed_uninstalls'):
+    if CLIENT_MANIFEST.get("managed_uninstalls"):
+        for items in CLIENT_MANIFEST.get("managed_uninstalls"):
             jamjar_uninstalls.append(items)
 
     # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
-    pending_count = CFPreferencesGetAppIntegerValue('PendingUpdateCount', 'ManagedInstalls',
-                                                    None)[0]
+    pending_count = CFPreferencesGetAppIntegerValue(
+        "PendingUpdateCount", "ManagedInstalls", None
+    )[0]
     # Check if ManagedInstallReport exists
-    install_report_plist = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
+    install_report_plist = f"{MANAGED_INSTALL_DIR}/ManagedInstallReport.plist"
     if not os.path.exists(install_report_plist):
-        print('ManagedInstallReport is missing')
+        print("ManagedInstallReport is missing")
     else:
         managed_install_report = {}
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
-        for warnings in managed_install_report.get('Warnings'):
-            print('Warning: %s' % warnings)
+        for warnings in managed_install_report.get("Warnings"):
+            print(f"Warning: {warnings}")
             warning_count += 1
 
     # Postflight policy text
-    print('Postflight: Contains %s installs %s, %s uninstalls %s, %s pending, %s warnings' % (
-        len(jamjar_installs), jamjar_installs, len(jamjar_uninstalls), jamjar_uninstalls,
-        pending_count, warning_count))
+    print(
+        f"Postflight: Contains {len(jamjar_installs)} installs {jamjar_installs}, {len(jamjar_uninstalls)} uninstalls {jamjar_uninstalls}, {pending_count} pending, {warning_count} warnings"
+    )
 
 
 # pylint: disable=too-many-branches, too-many-locals
 def process_parameters(user_name, jamjar_installs, jamjar_uninstalls, yolo_mode):
-    ''' Try & get parameters $4, $5, $6, $7, $8 & assign '''
+    """ Try & get parameters $4, $5, $6, $7, $8 & assign """
 
-    if sys.argv[4] == '':
+    if sys.argv[4] == "":
         add_to_installs = None
     else:
         installs = sys.argv[4]
-        installs_to_add = installs.split(', ')
+        installs_to_add = installs.split(", ")
         for add_to_installs in installs_to_add:
             jamjar_installs.append(add_to_installs)
-            print('Adding %s to installs' % add_to_installs)
+            print(f"Adding {add_to_installs} to installs")
 
-    if sys.argv[5] == '':
+    if sys.argv[5] == "":
         remove_from_installs = None
     else:
         install_removals = sys.argv[5]
-        installs_to_remove = install_removals.split(', ')
+        installs_to_remove = install_removals.split(", ")
         for remove_from_installs in installs_to_remove:
             try:
                 jamjar_installs.remove(remove_from_installs)
-                print('Removed %s from installs' % remove_from_installs)
+                print(f"Removed {remove_from_installs} from installs")
             except ValueError:
-                print('%s not in installs' % remove_from_installs)
+                print(f"{remove_from_installs} not in installs")
 
-    if sys.argv[6] == '':
+    if sys.argv[6] == "":
         add_to_uninstalls = None
     else:
         uninstalls = sys.argv[6]
-        uninstalls_to_add = uninstalls.split(', ')
+        uninstalls_to_add = uninstalls.split(", ")
         for add_to_uninstalls in uninstalls_to_add:
             jamjar_uninstalls.append(add_to_uninstalls)
-            print('Adding %s to uninstalls' % add_to_uninstalls)
+            print(f"Adding {add_to_uninstalls} to uninstalls")
 
-    if sys.argv[7] == '':
+    if sys.argv[7] == "":
         remove_from_uninstalls = None
     else:
         uninstall_removals = sys.argv[7]
-        uninstalls_to_remove = uninstall_removals.split(', ')
+        uninstalls_to_remove = uninstall_removals.split(", ")
         for remove_from_uninstalls in uninstalls_to_remove:
             try:
                 jamjar_uninstalls.remove(remove_from_uninstalls)
-                print('Removed %s from uninstalls' % remove_from_uninstalls)
+                print(f"Removed {remove_from_uninstalls} from uninstalls")
             except ValueError:
-                print('%s not in uninstalls' % remove_from_uninstalls)
+                print(f"{remove_from_uninstalls} not in uninstalls")
 
-    if sys.argv[8] != 'ENGAGE':
+    if sys.argv[8] != "ENGAGE":
         yolo_mode = None
     else:
         yolo_mode = sys.argv[8]
 
     # Check that we have some values passed to the paremeters.. exit if not
-    if (add_to_installs is None and remove_from_installs is None and add_to_uninstalls is None
-            and remove_from_uninstalls is None and yolo_mode is None):
-        print('Nothing assigned to $4, $5, $6. $7 or $8... exiting...')
+    if (
+        add_to_installs is None
+        and remove_from_installs is None
+        and add_to_uninstalls is None
+        and remove_from_uninstalls is None
+        and yolo_mode is None
+    ):
+        print("Nothing assigned to $4, $5, $6. $7 or $8... exiting...")
         sys.exit(1)
 
     return user_name, jamjar_installs, jamjar_uninstalls, yolo_mode
 
 
 def update_client_manifest(jamjar_installs, jamjar_uninstalls):
-    ''' Update manifest'''
+    """ Update manifest"""
 
     updated_client_manifest = {}
-    updated_client_manifest['managed_installs'] = jamjar_installs
-    updated_client_manifest['managed_uninstalls'] = jamjar_uninstalls
-    FoundationPlist.writePlist(updated_client_manifest, '%s/manifests/%s' %
-                               (MANAGED_INSTALL_DIR, MANIFEST))
+    updated_client_manifest["managed_installs"] = jamjar_installs
+    updated_client_manifest["managed_uninstalls"] = jamjar_uninstalls
+    FoundationPlist.writePlist(
+        updated_client_manifest, f"{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}"
+    )
 
 
 def run_managedsoftwareupdate_yolo():
-    ''' Run managedsoftwareupdate --checkonly then  --installonly '''
+    """ Run managedsoftwareupdate --checkonly then  --installonly """
 
     # Check 1st to cache installs
-    cmd = ['/usr/local/munki/managedsoftwareupdate', '--checkonly']
+    cmd = ["/usr/local/munki/managedsoftwareupdate", "--checkonly"]
     try:
-        subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
+        subprocess.call(cmd, stdout=open(os.devnull, "wb"))
     # pylint: disable=bare-except
     except:
-        print('There was an error running managedsoftwareupdate --installonly')
+        print("There was an error running managedsoftwareupdate --installonly")
         sys.exit(1)
 
     # Install all items, including pending
-    cmd = ['/usr/local/munki/managedsoftwareupdate', '--installonly']
+    cmd = ["/usr/local/munki/managedsoftwareupdate", "--installonly"]
     try:
-        subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
+        subprocess.call(cmd, stdout=open(os.devnull, "wb"))
     # pylint: disable=bare-except
     except:
-        print('There was an error running managedsoftwareupdate --installonly')
+        print("There was an error running managedsoftwareupdate --installonly")
         sys.exit(1)
 
 
 def run_managedsoftwareupdate_auto():
-    ''' Run managedsoftwareupdate. Called with these flags it will show status over
-        loginwindow, or if logged in postflight will do it's thing '''
+    """ Run managedsoftwareupdate. Called with these flags it will show status over
+        loginwindow, or if logged in postflight will do it's thing """
 
-    cmd = ['/usr/local/munki/managedsoftwareupdate', '--auto', '-m']
+    cmd = ["/usr/local/munki/managedsoftwareupdate", "--auto", "-m"]
     try:
-        subprocess.call(cmd, stdout=open(os.devnull, 'wb'))
+        subprocess.call(cmd, stdout=open(os.devnull, "wb"))
     # pylint: disable=bare-except
     except:
-        print('There was an error running managedsoftwareupdate --auto -m')
+        print("There was an error running managedsoftwareupdate --auto -m")
         sys.exit(1)
 
 
 def process_warnings(warning_count):
-    ''' Print any warnings '''
+    """ Print any warnings """
 
     # Check if ManagedInstallReport exists
-    install_report_plist = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
+    install_report_plist = f"{MANAGED_INSTALL_DIR}/ManagedInstallReport.plist"
     if not os.path.exists(install_report_plist):
-        print('ManagedInstallReport is missing')
+        print("ManagedInstallReport is missing")
     else:
         managed_install_report = {}
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
@@ -266,42 +279,51 @@ def process_warnings(warning_count):
     # Print & count warnings
     if os.path.exists(install_report_plist):
         # pylint: disable=unused-variable
-        for warnings in managed_install_report.get('Warnings'):
+        for warnings in managed_install_report.get("Warnings"):
             warning_count += 1
 
     return warning_count
 
 
 def process_uptodate():
-    ''' Give feedback that items are uptodate '''
+    """ Give feedback that items are uptodate """
 
     # Check if ManagedInstallReport exists
-    install_report_plist = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
+    install_report_plist = f"{MANAGED_INSTALL_DIR}/ManagedInstallReport.plist"
     if os.path.exists(install_report_plist):
         managed_install_report = {}
         managed_install_report = FoundationPlist.readPlist(install_report_plist)
         # If an item has updated, & Munki doesn't have a newer item,
         # it will be added to InstalledItems
-        if managed_install_report.get('InstalledItems'):
-            for installed_item in managed_install_report.get('InstalledItems'):
-                for item in managed_install_report.get('ManagedInstalls'):
-                    if item['name'] == installed_item:
-                        send_installed_uptodate(item['display_name'])
+        if managed_install_report.get("InstalledItems"):
+            for installed_item in managed_install_report.get("InstalledItems"):
+                for item in managed_install_report.get("ManagedInstalls"):
+                    if item["name"] == installed_item:
+                        send_installed_uptodate(item["display_name"])
 
 
 def send_installed_uptodate(item_display_name):
-    ''' Notify if item that install was requested for is uptodate, check username again incase
-        user logged out during execution '''
+    """ Notify if item that install was requested for is uptodate, check username again incase
+        user logged out during execution """
 
     username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
     if os.path.exists(NOTIFIER_PATH) and username:
         #    item_name  - example: OracleJava8
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
-        notifier_args = ['su', '-l', username, '-c', '"{0}" -sender "{1}" -message "{2}" \
-                                 -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID,
-                                                      NOTIFIER_MSG_UPTODATE % (item_display_name),
-                                                      NOTIFIER_MSG_TITLE,)]
+        notifier_args = [
+            "su",
+            "-l",
+            username,
+            "-c",
+            '"{0}" -sender "{1}" -message "{2}" \
+                                 -title "{3}"'.format(
+                NOTIFIER_PATH,
+                NOTIFIER_SENDER_ID,
+                NOTIFIER_MSG_UPTODATE % (item_display_name),
+                NOTIFIER_MSG_TITLE,
+            ),
+        ]
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
@@ -310,32 +332,36 @@ if __name__ == "__main__":
 
     # Make sure we're root
     if os.geteuid() != 0:
-        print('Error: This script must be run as root')
+        print("Error: This script must be run as root")
         sys.exit(1)
 
     # Retrieve values for the below keys. If not set, set to defaults
-    LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
+    LOG_FILE_DIR = CFPreferencesCopyAppValue("log_file_dir", "uk.co.dataJAR.jamJAR")
     if LOG_FILE_DIR is None:
-        LOG_FILE_DIR = '/var/log/'
-    NOTIFIER_MSG_UPTODATE = CFPreferencesCopyAppValue('notifier_msg_uptodate',
-                                                      'uk.co.dataJAR.jamJAR')
+        LOG_FILE_DIR = "/var/log/"
+    NOTIFIER_MSG_UPTODATE = CFPreferencesCopyAppValue(
+        "notifier_msg_uptodate", "uk.co.dataJAR.jamJAR"
+    )
     if NOTIFIER_MSG_UPTODATE is None:
-        NOTIFIER_MSG_UPTODATE = 'Latest version of %s is installed.'
-    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title',
-                                                   'uk.co.dataJAR.jamJAR')
+        NOTIFIER_MSG_UPTODATE = "Latest version of %s is installed."
+    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue(
+        "notifier_msg_title", "uk.co.dataJAR.jamJAR"
+    )
     if NOTIFIER_MSG_TITLE is None:
-        NOTIFIER_MSG_TITLE = 'jamJAR'
-    NOTIFIER_PATH = CFPreferencesCopyAppValue('notifier_path', 'uk.co.dataJAR.jamJAR')
+        NOTIFIER_MSG_TITLE = "jamJAR"
+    NOTIFIER_PATH = CFPreferencesCopyAppValue("notifier_path", "uk.co.dataJAR.jamJAR")
     if NOTIFIER_PATH is None:
         # pylint: disable=line-too-long
-        NOTIFIER_PATH = '/Library/Application Support/JAMF/bin/Management Action.app/Contents/MacOS/Management Action'
-    NOTIFIER_SENDER_ID = CFPreferencesCopyAppValue('notifier_sender_id', 'uk.co.dataJAR.jamJAR')
+        NOTIFIER_PATH = "/Library/Application Support/JAMF/bin/Management Action.app/Contents/MacOS/Management Action"
+    NOTIFIER_SENDER_ID = CFPreferencesCopyAppValue(
+        "notifier_sender_id", "uk.co.dataJAR.jamJAR"
+    )
     if NOTIFIER_SENDER_ID is None:
-        NOTIFIER_SENDER_ID = 'com.jamfsoftware.selfservice'
+        NOTIFIER_SENDER_ID = "com.jamfsoftware.selfservice"
 
     # Exit if cannot find /usr/local/munki, if found import modules
-    if not os.path.exists('/usr/local/munki'):
-        print('Cannot find /usr/local/munki')
+    if not os.path.exists("/usr/local/munki"):
+        print("Cannot find /usr/local/munki")
         sys.exit(1)
     else:
         sys.path.append("/usr/local/munki")
@@ -343,33 +369,37 @@ if __name__ == "__main__":
         from munkilib import FoundationPlist
 
     # Get location of the Managed Installs directory, exit if not found
-    MANAGED_INSTALL_DIR = CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls')
+    MANAGED_INSTALL_DIR = CFPreferencesCopyAppValue(
+        "ManagedInstallDir", "ManagedInstalls"
+    )
     if MANAGED_INSTALL_DIR is None:
-        print('Cannot get Managed Installs directory...')
+        print("Cannot get Managed Installs directory...")
         sys.exit(1)
 
     # Make sure a LocalOnlyManifest is specified, then grab the name
     # pylint: disable=no-member
-    MANIFEST = CFPreferencesCopyAppValue('LocalOnlyManifest', 'ManagedInstalls')
+    MANIFEST = CFPreferencesCopyAppValue("LocalOnlyManifest", "ManagedInstalls")
     # Some vars for tings & junk
     CLIENT_MANIFEST = {}
 
     # If no LocalOnlyManifest, then look for CLIENT_MANIFEST
     if MANIFEST is None:
-        print('Error: No LocalOnlyManifest declared...')
+        print("Error: No LocalOnlyManifest declared...")
         sys.exit(1)
     # If LocalOnlyManifest is declared, but does not exist exit.
-    elif MANIFEST is not None and not os.path.exists('%s/manifests/%s' %
-                                                     (MANAGED_INSTALL_DIR, MANIFEST)):
-        print('LocalOnlyManifest (%s) declared, but is missing' % MANIFEST)
+    elif MANIFEST is not None and not os.path.exists(
+        f"{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}"
+    ):
+        print(f"LocalOnlyManifest ({MANIFEST}) declared, but is missing")
     else:
         # If LocalOnlyManifest exists, try to read it
         try:
-            CLIENT_MANIFEST = FoundationPlist.readPlist('%s/manifests/%s' %
-                                                        (MANAGED_INSTALL_DIR, MANIFEST))
+            CLIENT_MANIFEST = FoundationPlist.readPlist(
+                f"{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}"
+            )
         # pylint: disable=bare-except
         except:
-            print('Cannot read LocalOnlyManifest')
+            print("Cannot read LocalOnlyManifest")
 
     # Gimme some main
     main()

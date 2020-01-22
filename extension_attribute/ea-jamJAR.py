@@ -1,5 +1,5 @@
 #!/usr/local/munki/python
-'''
+"""
 Copyright (c) 2019, dataJAR Ltd.  All rights reserved.
 
      Redistribution and use in source and binary forms, with or without
@@ -35,33 +35,37 @@ SUPPORT FOR THIS PROGRAM
 DESCRIPTION
 
 I have a jamf, I have a munki... Uh!.. jamJAR
-'''
+"""
 
 # Standard imports
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+
 import os
 import subprocess
+
 # pylint: disable=no-name-in-module
 from CoreFoundation import CFPreferencesCopyAppValue
 
-def main():
-    ''' Make sure that the jamJAR.log exists, & if it does... print the last line '''
 
-    log_file_path = os.path.join(LOG_FILE_DIR, 'jamJAR.log')
+def main():
+    """ Make sure that the jamJAR.log exists, & if it does... print the last line """
+
+    log_file_path = os.path.join(LOG_FILE_DIR, "jamJAR.log")
     if os.path.exists(log_file_path):
-        tail_log = subprocess.Popen(['/usr/bin/tail', '-1', log_file_path], stdout=subprocess.PIPE)
+        tail_log = subprocess.Popen(
+            ["/usr/bin/tail", "-1", log_file_path], stdout=subprocess.PIPE
+        )
         last_line = tail_log.communicate()[0].rstrip()
         result_str = last_line.decode("utf-8")
-        print(f'<result>{result_str}</result>')
+        print(f"<result>{result_str}</result>")
 
 
 if __name__ == "__main__":
 
     # Retrieve values for the below keys. If not set, set to defaults
-    LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
+    LOG_FILE_DIR = CFPreferencesCopyAppValue("log_file_dir", "uk.co.dataJAR.jamJAR")
     if LOG_FILE_DIR is None:
-        LOG_FILE_DIR = '/var/log/'
+        LOG_FILE_DIR = "/var/log/"
 
     # Gimme some main
     main()
