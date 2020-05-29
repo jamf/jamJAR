@@ -40,6 +40,7 @@ I have a jamf, I have a munki... Uh!.. jamJAR
 # Standard imports
 import logging
 import logging.handlers
+import plistlib
 import os
 import subprocess
 import sys
@@ -348,8 +349,16 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
-    PENDING_UPDATE_COUNT = CFPreferencesGetAppIntegerValue('PendingUpdateCount',
-                                                           'ManagedInstalls', None)[0]
+    managedinstallbase = CFPreferencesCopyAppValue("ManagedInstallDir", "ManagedInstalls")
+    installinfo = os.path.join(managedinstallbase, 'InstallInfo.plist')
+    if os.path.exists(installinfo):
+        installinfo = plistlib.readPlist(installinfo)
+        PENDING_INSTALLS = len(installinfo['managed_installs'])
+        PENDING_REMOVALS = len(installinfo['removals'])
+        PENDING_UPDATE_COUNT = PENDING_INSTALLS + PENDING_REMOVALS
+    else:
+        PENDING_UPDATE_COUNT = 0    
+
     LAST_PENDING_COUNT = CFPreferencesGetAppIntegerValue('pending_count',
                                                          'uk.co.dataJAR.jamJAR', None)[0]
 
