@@ -39,7 +39,7 @@ I have a jamf, I have a munki... Uh!.. jamJAR
 
 
 # Version
-__version__ = '1.5.2'
+__version__ = '1.5.3'
 
 
 # Standard imports
@@ -108,8 +108,7 @@ def process_installs(jamjar_installs, installed_items):
                 if item['status'] == 0:
                     if item['name'] in jamjar_installs:
                         for managed_installs in MANAGED_INSTALL_REPORT.get('ManagedInstalls'):
-                            if not managed_installs['category'] in NO_MSG_CATEGORY:
-                                send_installed_notification(item['display_name'], item['version'])
+                            send_installed_notification(item['display_name'], item['version'])
                         jamjar_installs.remove(item['name'])
                         installed_items += 1
 
@@ -309,9 +308,9 @@ if __name__ == "__main__":
     if NOTIFIER_SENDER_ID is None:
         NOTIFIER_SENDER_ID = 'com.jamfsoftware.selfservice'
 
-    NO_MSG_CATEGORY = CFPreferencesCopyAppValue('no_msg_category', 'uk.co.dataJAR.jamJAR')
-    if NO_MSG_CATEGORY is None:
-        NO_MSG_CATEGORY = ''
+#    NO_MSG_CATEGORY = CFPreferencesCopyAppValue('no_msg_category', 'uk.co.dataJAR.jamJAR')
+#    if NO_MSG_CATEGORY is None:
+#        NO_MSG_CATEGORY = ''
 
     DATAJAR_NOTIFIER = CFPreferencesCopyAppValue('datajar_notifier', 'uk.co.dataJAR.jamJAR')
     if DATAJAR_NOTIFIER is None:
