@@ -1,0 +1,114 @@
+{
+	"title": "uk.co.dataJAR.jamJAR",
+	"description": "JamJAR",
+	"properties": {
+        "notifier_path": {
+            "title": "notifier_path",
+            "description": "The path of the application sending the notifications. Currently only terminal-notifier & Jamf Pro's Management Action have been tested. If this is defined within jamJAR preferences but is missing, then no notifications are sent when a user is logged in. The only notifications will be from Munki status over the loginwindow. Defaults to Management Action.",
+            "property_order": 5,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "notifier_sender_id": {
+            "title": "notifier_sender_id",
+            "description": "The bundle ID of the application that sent the notification, this is only used for terminal-notifier, but seems that Jamf Pro's Management Action ignores this if sent. If this preference is not configured, com.jamfsoftware.selfservice is used.",
+            "property_order": 10,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "notifier_msg_nopending": {
+            "title": "notifier_msg_nopending",
+            "description": "The notification text to display when all pending updates have been installed.",
+            "property_order": 15,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "notifier_msg_installed": {
+            "title": "notifier_msg_installed",
+            "description": "The notification text to display when an item is installed, this requires 2 string placeholders (%s). These are then passed the following: Item Name (i.e. Google Chrome). Item Version (i.e. 56.0.2924.87). %s %s has been installed",
+            "property_order": 20,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "notifier_msg_title": {
+            "title": "notifier_msg_title",
+            "description": "The notification texts title. Defaults to jamJAR",
+            "property_order": 25,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "notifier_msg_uptodate": {
+            "title": "notifier_msg_uptodate",
+            "description": "The notification text to display when a jamJAR policy is initiated via Self Service & the title attempted to install is up-to-date. This requires 1 string placeholders (%s), which defaults to Item Name (i.e. Google Chrome). Latest version of %s is installed.",
+            "property_order": 30,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "no_msg_category": {
+            "title": "no_msg_category",
+            "description": "Titles installed by jamJAR with the category defined within this key will not post a notification.",
+            "property_order": 35,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "log_file_dir": {
+            "title": "log_file_dir",
+            "description": "This is the directory in which the jamJAR.log is created, this is created via the jamJAR postflight after every run. The log rotates at midnight & appends the date to the old file.",
+            "property_order": 40,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        },
+        "notifier_msg_pending": {
+            "title": "notifier_msg_pending",
+            "description": "The notification text to display when there are updates pending. Currently blocking apps or apps requiring a restart action will all trigger this notification.",
+            "property_order": 45,
+            "anyOf": [
+                {"type": "null", "title": "Not Configured"},
+                {
+                    "title": "Configured",
+                    "type": "string"
+                }
+            ]
+        }
+	}
+}
