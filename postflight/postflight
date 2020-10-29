@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/local/munki/munki-python
+# encoding: utf-8
 '''
 Copyright (c) 2020, dataJAR Ltd.  All rights reserved.
 
@@ -29,30 +30,30 @@ SUPPORT FOR THIS PROGRAM
     This program is distributed "as is" by DATA JAR LTD.
     For more information or support, please utilise the following resources:
 
-            https://macadmins.slack.com/messages/jamjar
-            https://github.com/dataJAR/jamJAR
-
-DESCRIPTION
-
-I have a jamf, I have a munki... Uh!.. jamJAR
+    https://macadmins.slack.com/messages/jamjar
+    https://macadmins.slack.com/messages/datajar
+    https://github.com/dataJAR/jamJAR
 '''
 
 
 # Version
-__version__ = '1.5.3'
+__version__ = '2.1'
 
 
 # Standard imports
 import logging
 import logging.handlers
 import os
+import platform
 import subprocess
 import sys
 import time
 # pylint: disable=import-error,no-name-in-module
-from CoreFoundation import (CFPreferencesCopyAppValue,
+from CoreFoundation import (CFPreferencesAppSynchronize,
+                            CFPreferencesCopyAppValue,
                             CFPreferencesGetAppIntegerValue,
                             CFPreferencesSetValue,
+                            CFPreferencesSetAppValue,
                             kCFPreferencesAnyHost,
                             kCFPreferencesAnyUser)
 # pylint: disable=import-error,no-name-in-module
@@ -63,12 +64,24 @@ def main():
     ''' Main function. Check ManagedInstallReport to see if items installed, check against
         mainfest & alert if something installed or if we have installs pending '''
 
-    # Some vars for tings & junk
     jamjar_installs = []
     jamjar_uninstalls = []
     installed_items = 0
     removed_items = 0
-    pending_items = PENDING_UPDATE_COUNT
+    pending_apple_updates, pending_items = get_pending_items()
+
+    # Get macOS version, borrowed from:
+    # https://github.com/munki/munki/blob/master/code/client/munkilib/osutils.py#L47-L60
+    os_version_tuple = tuple(map(int, platform.mac_ver()[0].split('.')))
+
+    # If macOS 10.13 or below then sum PENDING_UPDATE_COUNT & PENDING_APPLE_UPDATES_COUNT
+    # Borrowed from:
+    # https://github.com/munki/munki/blob/code/client/munkilib/appleupdates/au.py#L497-L518
+    if os_version_tuple <= (10, 13):
+        pending_items += pending_apple_updates
+    else:
+        # 10.14+, process apple updates now so inherent delay before other notifications etc
+        process_pending_apple_updates(pending_apple_updates)
 
     # Get items in the LocalOnlyManifests managed_installs array
     if CLIENT_MANIFEST.get('managed_installs'):
@@ -85,15 +98,53 @@ def main():
     jamjar_uninstalls, removed_items = process_uninstalls(jamjar_uninstalls, removed_items)
     process_pending(pending_items)
     warning_count = process_warnings()
+    # add macOS updates to pending items count if macOS 10.14+ for log count
+    if os_version_tuple >= (10, 14):
+        pending_items += pending_apple_updates
+
+    # Log status of run
     log_status(installed_items, removed_items, pending_items, warning_count)
 
     # Edit manifest leaving only items that have not installed yet
     if UPDATE_MANIFEST is True:
         update_client_manifest(jamjar_installs, jamjar_uninstalls)
 
+    # Delete auth if set
+    if DELETE_SECURE_AUTH is True:
+        delete_auth()
+
     # If we have something to notify about, update inventory
     if installed_items != 0 or removed_items != 0:
         update_inventory()
+
+
+def get_pending_items():
+    ''' Return pending items '''
+
+    pending_apple_updates = 0
+    pending_items = 0
+
+    # Get the pending updates from InstallInfo.plist if exists,
+    # therefore not including pending macOS updates.
+    # Borrowed from:
+    # https://github.com/munki/munki/blob/master/code/client/munkilib/installinfo.py#L104-L106
+    install_info_plist = '%s/InstallInfo.plist' % MANAGED_INSTALL_DIR
+    if os.path.exists(install_info_plist):
+        install_info = {}
+        install_info = FoundationPlist.readPlist(install_info_plist)
+        # Process pending as per below, h/t @TSPARR:
+        # https://github.com/munki/munki/blob/master/code/client/munkilib/installinfo.py#L104-L106
+        pending_items = (len(install_info['managed_installs']) +
+                         len(install_info['removals']))
+
+    # Get the pending updates from AppleUpdates.plist if exists.
+    apple_updates_plist = '%s/%s' % (MANAGED_INSTALL_DIR, 'AppleUpdates.plist')
+    if os.path.exists(apple_updates_plist):
+        apple_updates = {}
+        apple_updates = FoundationPlist.readPlist(apple_updates_plist)
+        pending_apple_updates = len(apple_updates['AppleUpdates'])
+
+    return pending_apple_updates, pending_items
 
 
 def process_installs(jamjar_installs, installed_items):
@@ -107,7 +158,7 @@ def process_installs(jamjar_installs, installed_items):
             for item in MANAGED_INSTALL_REPORT.get('InstallResults'):
                 if item['status'] == 0:
                     if item['name'] in jamjar_installs:
-                        for managed_installs in MANAGED_INSTALL_REPORT.get('ManagedInstalls'):
+                        for _ in MANAGED_INSTALL_REPORT.get('ManagedInstalls'):
                             send_installed_notification(item['display_name'], item['version'])
                         jamjar_installs.remove(item['name'])
                         installed_items += 1
@@ -144,30 +195,70 @@ def process_uninstalls(jamjar_uninstalls, removed_items):
     return (jamjar_uninstalls, removed_items)
 
 
+def process_pending_apple_updates(pending_apple_updates):
+    ''' Process pending Apple updates for macOS 10.14+ only '''
+
+    # Get integer values of pending items in the uk.co.dataJAR.jamJAR plist
+    last_apple_pending_count = CFPreferencesGetAppIntegerValue('apple_update_pending_count',
+                                                               'uk.co.dataJAR.jamJAR', None)[0]
+
+    # Only process if UnattendedAppleUpdates is set to true
+    if CFPreferencesCopyAppValue('UnattendedAppleUpdates', 'ManagedInstalls'):
+        # If we have more no pending updates & did last time, tidy up
+        if pending_apple_updates == 0 and last_apple_pending_count > pending_apple_updates:
+            send_pending_apple_update_notification(True)
+        # If we have more pending updates than last run or we have pending updates &
+        # are using the dataJAR Notifier, post notification
+        if (pending_apple_updates > last_apple_pending_count or
+                pending_apple_updates > 0 and DATAJAR_NOTIFIER):
+            send_pending_apple_update_notification(False)
+
+    # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
+    CFPreferencesSetValue('apple_update_pending_count', pending_apple_updates,
+                          'uk.co.dataJAR.jamJAR', kCFPreferencesAnyUser,
+                          kCFPreferencesAnyHost)
+
+
 def process_pending(pending_items):
     ''' Process pending '''
 
-    # Process pending items & notify if incremented, create/remove installatlogout
-    # file as needed
-    if PENDING_UPDATE_COUNT > LAST_PENDING_COUNT:
-        send_pending_notification(NOTIFIER_MSG_PENDING, False)
+    # The username of the logged in user
+    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+
+    #pylint: disable =consider-using-in
+    if username == "" or username == "loginwindow":
+        username = None
+
+    # Get the count of pending items from last run
+    last_pending_count = CFPreferencesGetAppIntegerValue('pending_count',
+                                                         'uk.co.dataJAR.jamJAR', None)[0]
+
+    # If we have more pending updates than last run
+    if pending_items > last_pending_count:
+        send_pending_notification(False)
         if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
-    elif PENDING_UPDATE_COUNT == 0 and LAST_PENDING_COUNT > PENDING_UPDATE_COUNT:
+    # If we have more no pending updates & did last time, tidy up
+    elif pending_items == 0 and last_pending_count > pending_items:
         time.sleep(10)
-        send_pending_notification(NOTIFIER_MSG_NOPENDING, True)
+        send_pending_notification(True)
         if os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
-    elif PENDING_UPDATE_COUNT == 0:
+    # If we have more no pending updates, tidy up
+    elif pending_items == 0:
         if os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
-    elif PENDING_UPDATE_COUNT > 0 and DATAJAR_NOTIFIER:
-        send_pending_notification(NOTIFIER_MSG_PENDING, False)
+    # If we have pending updates & are using the dataJAR Notifier and we're logged in,
+    # then post a notification
+    elif (pending_items > 0 and DATAJAR_NOTIFIER) and username:
+        send_pending_notification(False)
         if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
+    # Create munki trigger file as we have pending items
     else:
-        if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
-            open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
+        if username:
+            if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
+                open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
 
     # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
     CFPreferencesSetValue('pending_count', pending_items, 'uk.co.dataJAR.jamJAR',
@@ -184,7 +275,10 @@ def send_installed_notification(item_display_name, item_version):
     '''Check if the defined notifier app exists, & some is logged in
        before trying to send a notification. Only sent when installed '''
 
+    # The username of the logged in user
     username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+
+    #pylint: disable =consider-using-in
     if username == "" or username == "loginwindow":
         username = None
 
@@ -195,21 +289,24 @@ def send_installed_notification(item_display_name, item_version):
         if DATAJAR_NOTIFIER and sys.argv[1] != 'manualcheck':
             notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" --messageaction "{1}" \
         --message "{2}" --title "{3}" --type banner'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
-     NOTIFIER_MSG_INSTALLED % (item_display_name, item_version.strip()), NOTIFIER_MSG_TITLE,)]
+      NOTIFIER_MSG_INSTALLED % (item_display_name, item_version.strip()), NOTIFIER_MSG_TITLE)]
         else:
             notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" -sender "{1}" \
                 -message "{2}" -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
-                   NOTIFIER_MSG_INSTALLED % (item_display_name, item_version.strip()), \
-                                                                 NOTIFIER_MSG_TITLE,)]
+                                          NOTIFIER_MSG_INSTALLED % (item_display_name, \
+                                           item_version.strip()), NOTIFIER_MSG_TITLE)]
+
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
 
-def send_pending_notification(the_msg, clear_logout_msg):
+def send_pending_apple_update_notification(clear_prior_msg):
     '''Check if the defined notifier app exists, & some is logged in
        before trying to send a notification. Only sent when something pending '''
 
     username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+
+    #pylint: disable =consider-using-in
     if username == "" or username == "loginwindow":
         username = None
 
@@ -218,7 +315,43 @@ def send_pending_notification(the_msg, clear_logout_msg):
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
         if DATAJAR_NOTIFIER:
-            if clear_logout_msg:
+            if clear_prior_msg:
+                notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" --messageaction "{1}" \
+                                        --message "{2}" --title "{3}" --type alert --remove prior' \
+                                                        .format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
+                                               NOTIFIER_MSG_OSUPDATESPENDING, NOTIFIER_MSG_TITLE)]
+                # Clear prior message
+                subprocess.call(notifier_args, close_fds=True)
+            else:
+                notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" --messageaction "{1}" \
+                                                       --message "{2}" --title "{3}" --type alert' \
+                         .format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, NOTIFIER_MSG_OSUPDATESPENDING, \
+                                                                              NOTIFIER_MSG_TITLE)]
+        else:
+            notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" -sender "{1}" \
+                -message "{2}" -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
+                                   NOTIFIER_MSG_OSUPDATESPENDING, NOTIFIER_MSG_TITLE)]
+
+        # Send notification
+        subprocess.call(notifier_args, close_fds=True)
+
+
+def send_pending_notification(clear_prior_msg):
+    '''Check if the defined notifier app exists, & some is logged in
+       before trying to send a notification. Only sent when something pending '''
+
+    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+
+    #pylint: disable =consider-using-in
+    if username == "" or username == "loginwindow":
+        username = None
+
+    if os.path.exists(NOTIFIER_PATH) and username:
+        #    item_name  - example: OracleJava8
+        #    item_display_name - example: Oracle Java 8
+        #    item_version - example: 1.8.111.14
+        if DATAJAR_NOTIFIER:
+            if clear_prior_msg:
                 notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" --messageaction "{1}" \
      --message "{2}" --title "{3}" --type alert --messagebutton "{4}" --messagebuttonaction logout \
                    --remove prior'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, NOTIFIER_MSG_PENDING, \
@@ -227,17 +360,17 @@ def send_pending_notification(the_msg, clear_logout_msg):
                 subprocess.call(notifier_args, close_fds=True)
                 notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" --messageaction "{1}" \
                                                       --message "{2}" --title "{3}" --type banner' \
-                          .format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, the_msg, NOTIFIER_MSG_TITLE)]
+           .format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, NOTIFIER_MSG_NOPENDING, NOTIFIER_MSG_TITLE)]
             else:
                 notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" --messageaction "{1}" \
     --message "{2}" --title "{3}" --type alert --messagebutton "{4}" --messagebuttonaction logout' \
-                           .format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, the_msg, NOTIFIER_MSG_TITLE, \
-                                                                  DATAJAR_NOTIFIER_LOGOUT_BUTTON)]
-
+                                  .format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, NOTIFIER_MSG_PENDING, \
+                                              NOTIFIER_MSG_TITLE, DATAJAR_NOTIFIER_LOGOUT_BUTTON)]
         else:
             notifier_args = ['/usr/bin/su', '-l', username, '-c', '"{0}" -sender "{1}" \
                 -message "{2}" -title "{3}"'.format(NOTIFIER_PATH, NOTIFIER_SENDER_ID, \
-                                                        the_msg, NOTIFIER_MSG_TITLE,)]
+                                            NOTIFIER_MSG_PENDING, NOTIFIER_MSG_TITLE)]
+
         # Send notification
         subprocess.call(notifier_args, close_fds=True)
 
@@ -258,6 +391,13 @@ def update_client_manifest(jamjar_installs, jamjar_uninstalls):
     FoundationPlist.writePlist(updated_client_manifest, '%s/manifests/%s' %
                                (MANAGED_INSTALL_DIR, MANIFEST))
 
+def delete_auth():
+    ''' Delete the AdditionalHttpHeaders key in
+        /private/var/root/Library/Preferences/ManagedInstalls.plist '''
+
+    CFPreferencesSetAppValue('AdditionalHttpHeaders', None, 'ManagedInstalls')
+    CFPreferencesAppSynchronize('ManagedInstalls')
+
 
 def update_inventory():
     ''' If we have something to notify about, are not in Munki mode &
@@ -274,28 +414,77 @@ if __name__ == "__main__":
         print('Error: This script must be run as root')
         sys.exit(1)
 
+    # Try to locate jamf binary
+    if not os.path.exists('/usr/local/jamf/bin/jamf'):
+        logging.error('Cannot find jamf binary')
+        sys.exit(1)
+
     # Retrieve values for the below keys. If not set, set to defaults
     LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
     if LOG_FILE_DIR is None:
         LOG_FILE_DIR = '/var/log/'
 
+    # Create LOG_FILE_DIR if doesn't exist
+    if not os.path.exists(LOG_FILE_DIR):
+        os.makedirs(LOG_FILE_DIR)
+
+    LOG_FILE_NAME = CFPreferencesCopyAppValue('log_file_name', 'uk.co.dataJAR.jamJAR')
+    if LOG_FILE_NAME is None:
+        LOG_FILE_NAME = 'jamJAR'
+
+    # Configure logging to a file
+    LOGGER = logging.getLogger()
+    LOGGER.setLevel(logging.INFO)
+    HANDLER = logging.handlers.RotatingFileHandler(os.path.join(LOG_FILE_DIR,
+                                                                LOG_FILE_NAME + '.log'),
+                                                   mode='a', maxBytes=10000000, backupCount=1)
+    FORMATTER = logging.Formatter('%(asctime)s %(levelname)s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    HANDLER.setFormatter(FORMATTER)
+    LOGGER.addHandler(HANDLER)
+
+    # Import FoundationPlist from munki, exit if errors
+    sys.path.append("/usr/local/munki")
+    try:
+        from munkilib import FoundationPlist
+    except ImportError:
+        logging.error('Cannot import FoundationPlist')
+        sys.exit(1)
+
+    DATAJAR_NOTIFIER = CFPreferencesCopyAppValue('datajar_notifier', 'uk.co.dataJAR.jamJAR')
+    if DATAJAR_NOTIFIER is None:
+        DATAJAR_NOTIFIER = False
+
+    DATAJAR_NOTIFIER_LOGOUT_BUTTON = CFPreferencesCopyAppValue('datajar_notifier_logout_button', \
+                                                                         'uk.co.dataJAR.jamJAR')
+    if DATAJAR_NOTIFIER_LOGOUT_BUTTON is None:
+        DATAJAR_NOTIFIER_LOGOUT_BUTTON = 'Logout'
+
+    DELETE_SECURE_AUTH = CFPreferencesCopyAppValue('delete_secure_auth', 'uk.co.dataJAR.jamJAR')
+    if DELETE_SECURE_AUTH is None:
+        DELETE_SECURE_AUTH = False
+
     NOTIFIER_MSG_INSTALLED = CFPreferencesCopyAppValue('notifier_msg_installed',
-                                                       'uk.co.dataJAR.jamJAR').encode('utf-8')
+                                                       'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_INSTALLED is None:
         NOTIFIER_MSG_INSTALLED = '%s %s has been installed'
 
     NOTIFIER_MSG_NOPENDING = CFPreferencesCopyAppValue('notifier_msg_nopending',
-                                                       'uk.co.dataJAR.jamJAR').encode('utf-8')
+                                                       'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_NOPENDING is None:
         NOTIFIER_MSG_NOPENDING = 'No updates pending'
 
-    NOTIFIER_MSG_PENDING = CFPreferencesCopyAppValue('notifier_msg_pending', \
-                                     'uk.co.dataJAR.jamJAR').encode('utf-8')
+    NOTIFIER_MSG_OSUPDATESPENDING = CFPreferencesCopyAppValue('notifier_msg_osupdatespending', \
+                                                                       'uk.co.dataJAR.jamJAR')
+    if NOTIFIER_MSG_OSUPDATESPENDING is None:
+        NOTIFIER_MSG_OSUPDATESPENDING = 'macOS Updates available. Click here for more details'
+
+    NOTIFIER_MSG_PENDING = CFPreferencesCopyAppValue('notifier_msg_pending', 'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_PENDING is None:
         NOTIFIER_MSG_PENDING = 'Logout to complete pending updates'
 
-    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title',
-                                                   'uk.co.dataJAR.jamJAR')
+    NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title', 'uk.co.dataJAR.jamJAR')
+
     if NOTIFIER_MSG_TITLE is None:
         NOTIFIER_MSG_TITLE = 'jamJAR'
 
@@ -312,47 +501,12 @@ if __name__ == "__main__":
 #    if NO_MSG_CATEGORY is None:
 #        NO_MSG_CATEGORY = ''
 
-    DATAJAR_NOTIFIER = CFPreferencesCopyAppValue('datajar_notifier', 'uk.co.dataJAR.jamJAR')
-    if DATAJAR_NOTIFIER is None:
-        DATAJAR_NOTIFIER = False
-
-    DATAJAR_NOTIFIER_LOGOUT_BUTTON = CFPreferencesCopyAppValue('datajar_notifier_logout_button', \
-                                                                         'uk.co.dataJAR.jamJAR')
-    if DATAJAR_NOTIFIER_LOGOUT_BUTTON is None:
-        DATAJAR_NOTIFIER_LOGOUT_BUTTON = 'Logout'
-
-    # Create LOG_FILE_DIR if doesn't exist
-    if not os.path.exists(LOG_FILE_DIR):
-        os.makedirs(LOG_FILE_DIR)
-
-    # Configure logging to a file
-    LOGGER = logging.getLogger()
-    LOGGER.setLevel(logging.INFO)
-    HANDLER = logging.handlers.TimedRotatingFileHandler(os.path.join(LOG_FILE_DIR,
-                                                                     'jamJAR.log'),
-                                                        'midnight', backupCount=10)
-    FORMATTER = logging.Formatter('%(asctime)s %(levelname)s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    HANDLER.setFormatter(FORMATTER)
-    LOGGER.addHandler(HANDLER)
-
-    # Exit if cannot find /usr/local/munki, if found import modules
-    if not os.path.exists('/usr/local/munki'):
-        logging.error('Cannot find /usr/local/munki')
-        sys.exit(1)
-    else:
-        sys.path.append("/usr/local/munki")
-        try:
-            from munkilib import FoundationPlist
-        except ImportError:
-            logging.error('Cannot import FoundationPlist')
-            sys.exit(1)
-
     # Get location of the Managed Installs directory, exit if not found
     MANAGED_INSTALL_DIR = CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls')
     if MANAGED_INSTALL_DIR is None:
-        logging.warning('Cannot get Managed Installs directory...')
-        sys.exit(0)
+        logging.error('Cannot get Managed Installs directory...')
+        sys.exit(1)
+
     # Check if ManagedInstallReport exists
     INSTALL_REPORT_PLIST = '%s/ManagedInstallReport.plist' % MANAGED_INSTALL_DIR
     if not os.path.exists(INSTALL_REPORT_PLIST):
@@ -388,8 +542,7 @@ if __name__ == "__main__":
     # If LocalOnlyManifest is declared, but does not exist exit.
     elif MANIFEST is not None and not os.path.exists('%s/manifests/%s' %
                                                      (MANAGED_INSTALL_DIR, MANIFEST)):
-        logging.warning('LocalOnlyManifest (%s) declared, but is missing',
-                        MANIFEST)
+        logging.warning('LocalOnlyManifest (%s) declared, but is missing', MANIFEST)
         sys.exit(0)
     else:
         # If LocalOnlyManifest exists, try to read it
@@ -399,17 +552,6 @@ if __name__ == "__main__":
         except FoundationPlist.NSPropertyListSerializationException:
             logging.error('Cannot read LocalOnlyManifest')
             sys.exit(1)
-
-    # Try to locate jamf binary
-    if not os.path.exists('/usr/local/jamf/bin/jamf'):
-        logging.error('Cannot find jamf binary')
-        sys.exit(1)
-
-    # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
-    PENDING_UPDATE_COUNT = CFPreferencesGetAppIntegerValue('PendingUpdateCount',
-                                                           'ManagedInstalls', None)[0]
-    LAST_PENDING_COUNT = CFPreferencesGetAppIntegerValue('pending_count',
-                                                         'uk.co.dataJAR.jamJAR', None)[0]
 
     # Gimme some main
     main()
