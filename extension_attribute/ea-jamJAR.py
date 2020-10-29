@@ -1,6 +1,6 @@
 #!/usr/bin/python
 '''
-Copyright (c) 2017, dataJAR Ltd.  All rights reserved.
+Copyright (c) 2020, dataJAR Ltd.  All rights reserved.
 
      Redistribution and use in source and binary forms, with or without
      modification, are permitted provided that the following conditions are met:
@@ -29,13 +29,13 @@ SUPPORT FOR THIS PROGRAM
     This program is distributed "as is" by DATA JAR LTD.
     For more information or support, please utilise the following resources:
 
-            https://macadmins.slack.com/messages/jamjar
-            https://github.com/dataJAR/jamJAR
-
-DESCRIPTION
-
-I have a jamf, I have a munki... Uh!.. jamJAR
+    https://macadmins.slack.com/messages/jamjar
+    https://macadmins.slack.com/messages/datajar
+    https://github.com/dataJAR/jamJAR
 '''
+
+# Version
+__version__ = '2.0'
 
 # Standard imports
 import os
@@ -46,7 +46,7 @@ from CoreFoundation import CFPreferencesCopyAppValue
 def main():
     ''' Make sure that the jamJAR.log exists, & if it does... print the last line '''
 
-    log_file_path = os.path.join(LOG_FILE_DIR, 'jamJAR.log')
+    log_file_path = os.path.join(LOG_FILE_DIR, LOG_FILE_NAME + '.log')
     if os.path.exists(log_file_path):
         tail_log = subprocess.Popen(['/usr/bin/tail', '-1', log_file_path], stdout=subprocess.PIPE)
         last_line = tail_log.communicate()[0].rstrip()
@@ -59,6 +59,10 @@ if __name__ == "__main__":
     LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
     if LOG_FILE_DIR is None:
         LOG_FILE_DIR = '/var/log/'
+
+    LOG_FILE_NAME = CFPreferencesCopyAppValue('log_file_name', 'uk.co.dataJAR.jamJAR')
+    if LOG_FILE_NAME is None:
+        LOG_FILE_NAME = 'jamJAR'
 
     # Gimme some main
     main()
