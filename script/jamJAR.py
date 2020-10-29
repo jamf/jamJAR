@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/local/munki/munki-python
+# encoding: utf-8
 # pylint: disable=invalid-name
 '''
 Copyright (c) 2020, dataJAR Ltd.  All rights reserved.
@@ -30,17 +31,14 @@ SUPPORT FOR THIS PROGRAM
     This program is distributed "as is" by DATA JAR LTD.
     For more information or support, please utilise the following resources:
 
-            https://macadmins.slack.com/messages/jamjar
-            https://github.com/dataJAR/jamJAR
-
-DESCRIPTION
-
-I have a jamf, I have a munki... Uh!.. jamJAR
+    https://macadmins.slack.com/messages/jamjar
+    https://macadmins.slack.com/messages/datajar
+    https://github.com/dataJAR/jamJAR
 '''
 
 
 # Version
-__version__ = '1.5.1'
+__version__ = '2.0'
 
 
 # Standard imports
@@ -55,7 +53,7 @@ from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 
 def main():
-    ''' Check paramters & update manifest as needed, send alert if ran via Self Service &
+    ''' Check parameters & update manifest as needed, send alert if ran via Self Service &
         uptodate. Force install if wanted. '''
 
     # Some vars for tings & junk
@@ -315,11 +313,6 @@ if __name__ == "__main__":
     if os.geteuid() != 0:
         print('Error: This script must be run as root')
         sys.exit(1)
-
-    # Retrieve values for the below keys. If not set, set to defaults
-    LOG_FILE_DIR = CFPreferencesCopyAppValue('log_file_dir', 'uk.co.dataJAR.jamJAR')
-    if LOG_FILE_DIR is None:
-        LOG_FILE_DIR = '/var/log/'
 
     NOTIFIER_MSG_UPTODATE = CFPreferencesCopyAppValue('notifier_msg_uptodate',
                                                       'uk.co.dataJAR.jamJAR')
