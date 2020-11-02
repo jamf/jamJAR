@@ -38,7 +38,7 @@ SUPPORT FOR THIS PROGRAM
 
 
 # Version
-__version__ = '2.0'
+__version__ = '2.0.1'
 
 
 # Standard imports
@@ -99,7 +99,7 @@ def main():
         run_managedsoftwareupdate_auto()
 
     # If running under Self Service, then USERNAME is None but we'll have a USER
-    if not os.environ.get('USERNAME') and os.environ.get('USER'):
+    if not os.environ.get('USERNAME') and os.environ.get('USER') and os.environ.get('USER') != 'root'::
         # Give feedback that items are uptodate
         process_uptodate()
 
