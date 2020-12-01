@@ -250,7 +250,7 @@ def process_pending(pending_items):
             os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
     # If we have pending updates & are using the dataJAR Notifier and we're logged in,
     # then post a notification
-    elif (pending_items > 0 and DATAJAR_NOTIFIER) and username:
+    elif (pending_items > 0 and DATAJAR_NOTIFIER and not DATAJAR_NOTIFIER_LEGACY_MODE) and username:
         send_pending_notification(False)
         if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             open('/private/tmp/com.googlecode.munki.installatlogout', 'w').close()
@@ -454,6 +454,10 @@ if __name__ == "__main__":
     DATAJAR_NOTIFIER = CFPreferencesCopyAppValue('datajar_notifier', 'uk.co.dataJAR.jamJAR')
     if DATAJAR_NOTIFIER is None:
         DATAJAR_NOTIFIER = False
+
+    DATAJAR_NOTIFIER_LEGACY_MODE = CFPreferencesCopyAppValue('datajar_notifier_legacy_mode', 'uk.co.dataJAR.jamJAR')
+    if DATAJAR_NOTIFIER_LEGACY_MODE is None:
+        DATAJAR_NOTIFIER_LEGACY_MODE = False
 
     DATAJAR_NOTIFIER_LOGOUT_BUTTON = CFPreferencesCopyAppValue('datajar_notifier_logout_button', \
                                                                          'uk.co.dataJAR.jamJAR')
