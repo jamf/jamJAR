@@ -210,7 +210,7 @@ def process_pending_apple_updates(pending_apple_updates):
         # If we have more pending updates than last run or we have pending updates &
         # are using the dataJAR Notifier, post notification
         if (pending_apple_updates > last_apple_pending_count or
-                pending_apple_updates > 0 and DATAJAR_NOTIFIER):
+                pending_apple_updates > 0 and DATAJAR_NOTIFIER and not DATAJAR_NOTIFIER_LEGACY_MODE):
             send_pending_apple_update_notification(False)
 
     # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
