@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/munki/munki-python
 '''
 Copyright (c) 2020, dataJAR Ltd.  All rights reserved.
 
@@ -35,7 +35,7 @@ SUPPORT FOR THIS PROGRAM
 '''
 
 # Version
-__version__ = '2.0'
+__version__ = '2.0.1'
 
 # Standard imports
 import os
@@ -49,8 +49,8 @@ def main():
     log_file_path = os.path.join(LOG_FILE_DIR, LOG_FILE_NAME + '.log')
     if os.path.exists(log_file_path):
         tail_log = subprocess.Popen(['/usr/bin/tail', '-1', log_file_path], stdout=subprocess.PIPE)
-        last_line = tail_log.communicate()[0].rstrip()
-        print '<result>%s</result>' % last_line
+        last_line = tail_log.communicate()[0].rstrip().decode()
+        print('<result>%s</result>' % last_line)
 
 
 if __name__ == "__main__":
