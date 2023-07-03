@@ -148,28 +148,28 @@ def process_parameters(jamjar_installs, jamjar_uninstalls):
     # If something has been passed to $4
     if sys.argv[4] != '':
         # Split at ,
-        installs_to_add = sys.argv[4].split(', ')
+        installs_to_add = sys.argv[4].split(',')
         # Process to add to jamjar_installs
         process_parameter_4(installs_to_add, jamjar_installs)
 
     # If something has been passed to $5
     if sys.argv[5] != '':
         # Split at ,
-        installs_to_remove = sys.argv[5].split(', ')
+        installs_to_remove = sys.argv[5].split(',')
         # Process to add to jamjar_installs
         process_parameter_7(installs_to_remove, jamjar_installs)
 
     # If something has been passed to $6
     if sys.argv[6] != '':
         # Split at ,
-        uninstalls_to_add = sys.argv[6].split(', ')
+        uninstalls_to_add = sys.argv[6].split(',')
         # Process to add to jamjar_uninstalls
         process_parameter_6(jamjar_uninstalls, uninstalls_to_add)
 
     # If something has been passed to $7
     if sys.argv[7] != '':
         # Split at ,
-        uninstalls_to_remove = sys.argv[7].split(', ')
+        uninstalls_to_remove = sys.argv[7].split(',')
         # Process to add to jamjar_uninstalls
         process_parameter_7(jamjar_uninstalls, uninstalls_to_remove)
 
