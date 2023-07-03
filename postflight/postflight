@@ -121,6 +121,20 @@ def main():
         update_inventory()
 
 
+# Other functions
+def delete_auth():
+    '''
+        Delete the AdditionalHttpHeaders key in
+        /private/var/root/Library/Preferences/ManagedInstalls.plist
+    '''
+
+    # Delete the pref key
+    CFPreferencesSetAppValue('AdditionalHttpHeaders', None, 'ManagedInstalls')
+
+    # Force a sync to update
+    CFPreferencesAppSynchronize('ManagedInstalls')
+
+
 def get_pending_items():
     '''
         Return pending items.
@@ -153,6 +167,31 @@ def get_pending_items():
     # Return the items macOS updates pending install, and the number of pending items
     return pending_apple_updates, pending_items
 
+def get_username():
+    '''
+        Gets the logged in users username, or returns None
+    '''
+
+    # Get the username
+    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+
+    # If we have no value for the above, or we're at the loginwindow.. set username to None
+    if username in ("", "loginwindow"):
+        username = None
+
+    # Return the logged in users username, or None
+    return username
+
+
+def log_status(installed_items, removed_items, pending_items, warning_count):
+    '''
+        It's big it's heavy it's wood...
+    '''
+
+    # Log this runs status
+    logging.info('%s installed, %s removed, %s pending, %s warnings',
+                 installed_items, removed_items, pending_items, warning_count)
+
 
 def process_installs(jamjar_installs, installed_items):
     '''
@@ -161,17 +200,14 @@ def process_installs(jamjar_installs, installed_items):
 
     # Check to make sure that we have installs pending, notify if installed & remove
     # from jamjar_installs, & increment count
-    # pylint: disable=too-many-nested-blocks
     if jamjar_installs:
         if MANAGED_INSTALL_REPORT.get('InstallResults'):
             for item in MANAGED_INSTALL_REPORT.get('InstallResults'):
-                if item['status'] == 0:
-                    if item['name'] in jamjar_installs:
-                        for _ in MANAGED_INSTALL_REPORT.get('ManagedInstalls'):
-                            send_installed_notification(item['display_name'], item['version'])
-                        jamjar_installs.remove(item['name'])
-                        installed_items += 1
-
+                if item['status'] == 0 and item['name'] in jamjar_installs:
+                    for _ in MANAGED_INSTALL_REPORT.get('ManagedInstalls'):
+                        send_installed_notification(item['display_name'], item['version'])
+                    jamjar_installs.remove(item['name'])
+                    installed_items += 1
         # If Munki doesn't have a newer item, it can be found in InstalledItems.
         # Remove from jamjar_installs but do not notify
         if MANAGED_INSTALL_REPORT.get('InstalledItems'):
@@ -181,31 +217,6 @@ def process_installs(jamjar_installs, installed_items):
 
     # Return the items pending install, and the number of items installed
     return (jamjar_installs, installed_items)
-
-
-def process_uninstalls(jamjar_uninstalls, removed_items):
-    '''
-        Process uninstalls.
-    '''
-
-    # Check to make sure that we have uninstalls pending, if items uninstalled remove
-    # from jamjar_uninstalls & increment removals
-    if jamjar_uninstalls:
-        if MANAGED_INSTALL_REPORT.get('RemovalResults'):
-            for item in MANAGED_INSTALL_REPORT.get('RemovalResults'):
-                if item['status'] == 0:
-                    if item['name'] in jamjar_uninstalls:
-                        jamjar_uninstalls.remove(item['name'])
-                        removed_items += 1
-        # If an item has otherwise been removed
-        if MANAGED_INSTALL_REPORT.get('RemovedItems'):
-            for item in MANAGED_INSTALL_REPORT.get('RemovedItems'):
-                if item in jamjar_uninstalls:
-                    jamjar_uninstalls.remove(item)
-                    removed_items += 1
-
-    # Return the items pending uninstall, and the number of items uninstalled
-    return (jamjar_uninstalls, removed_items)
 
 
 def process_pending_apple_updates(pending_apple_updates):
@@ -240,11 +251,7 @@ def process_pending(pending_items):
     '''
 
     # The username of the logged in user
-    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
-
-    #pylint: disable =consider-using-in
-    if username == "" or username == "loginwindow":
-        username = None
+    username = get_username()
 
     # Get the count of pending items from last run
     last_pending_count = CFPreferencesGetAppIntegerValue('pending_count',
@@ -287,6 +294,31 @@ def process_pending(pending_items):
                           kCFPreferencesAnyUser, kCFPreferencesAnyHost)
 
 
+def process_uninstalls(jamjar_uninstalls, removed_items):
+    '''
+        Process uninstalls.
+    '''
+
+    # Check to make sure that we have uninstalls pending, if items uninstalled remove
+    # from jamjar_uninstalls & increment removals
+    if jamjar_uninstalls:
+        if MANAGED_INSTALL_REPORT.get('RemovalResults'):
+            for item in MANAGED_INSTALL_REPORT.get('RemovalResults'):
+                if item['status'] == 0:
+                    if item['name'] in jamjar_uninstalls:
+                        jamjar_uninstalls.remove(item['name'])
+                        removed_items += 1
+        # If an item has otherwise been removed
+        if MANAGED_INSTALL_REPORT.get('RemovedItems'):
+            for item in MANAGED_INSTALL_REPORT.get('RemovedItems'):
+                if item in jamjar_uninstalls:
+                    jamjar_uninstalls.remove(item)
+                    removed_items += 1
+
+    # Return the items pending uninstall, and the number of items uninstalled
+    return (jamjar_uninstalls, removed_items)
+
+
 def process_warnings():
     '''
         Return number of warnings.
@@ -303,12 +335,9 @@ def send_installed_notification(item_display_name, item_version):
     '''
 
     # The username of the logged in user
-    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
+    username = get_username()
 
-    #pylint: disable =consider-using-in
-    if username == "" or username == "loginwindow":
-        username = None
-
+    # If we have the wanted notifier app installed, and we're logged in
     if os.path.exists(NOTIFIER_PATH) and username:
         #    item_name  - example: OracleJava8
         #    item_display_name - example: Oracle Java 8
@@ -336,11 +365,7 @@ def send_pending_apple_update_notification(clear_prior_msg):
     '''
 
     # Get the username
-    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
-
-    #pylint: disable =consider-using-in
-    if username == "" or username == "loginwindow":
-        username = None
+    username = get_username()
 
     # If using the dataJAR notifier and someone is logged in
     if os.path.exists(NOTIFIER_PATH) and username:
@@ -383,11 +408,7 @@ def send_pending_notification(clear_prior_msg):
     '''
 
     # Get the username
-    username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]
-
-    #pylint: disable =consider-using-in
-    if username == "" or username == "loginwindow":
-        username = None
+    username = get_username()
 
     # If the wanted notifier app exists, and we're logged in as a user
     if os.path.exists(NOTIFIER_PATH) and username:
@@ -434,16 +455,6 @@ def send_pending_notification(clear_prior_msg):
         subprocess.call(notifier_args, close_fds=True)
 
 
-def log_status(installed_items, removed_items, pending_items, warning_count):
-    '''
-        It's big it's heavy it's wood...
-    '''
-
-    # Log this runs status
-    logging.info('%s installed, %s removed, %s pending, %s warnings',
-                 installed_items, removed_items, pending_items, warning_count)
-
-
 def update_client_manifest(jamjar_installs, jamjar_uninstalls):
     '''
         Update manifest, leaving only items that have not installed/uninstalled yet.
@@ -463,19 +474,6 @@ def update_client_manifest(jamjar_installs, jamjar_uninstalls):
                                f'{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}')
 
 
-def delete_auth():
-    '''
-        Delete the AdditionalHttpHeaders key in
-        /private/var/root/Library/Preferences/ManagedInstalls.plist
-    '''
-
-    # Delete the pref key
-    CFPreferencesSetAppValue('AdditionalHttpHeaders', None, 'ManagedInstalls')
-
-    # Force a sync to update
-    CFPreferencesAppSynchronize('ManagedInstalls')
-
-
 def update_inventory():
     '''
         If we have something to notify about, are not in Munki mode &
@@ -493,7 +491,7 @@ if __name__ == "__main__":
 
     # Make sure we're root
     if os.geteuid() != 0:
-        print('Error: This script must be run as root')
+        print('ERROR: This script must be run as root')
         sys.exit(1)
 
     # Try to locate jamf binary
@@ -575,15 +573,14 @@ if __name__ == "__main__":
 
     # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#notifier_msg_title
     NOTIFIER_MSG_TITLE = CFPreferencesCopyAppValue('notifier_msg_title', 'uk.co.dataJAR.jamJAR')
-
     if NOTIFIER_MSG_TITLE is None:
         NOTIFIER_MSG_TITLE = 'jamJAR'
 
     # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#notifier_path
     NOTIFIER_PATH = CFPreferencesCopyAppValue('notifier_path', 'uk.co.dataJAR.jamJAR')
     if NOTIFIER_PATH is None:
-        NOTIFIER_PATH = '/Library/Application Support/JAMF/bin/Management ' \
-                        'Action.app/Contents/MacOS/Management Action'
+        NOTIFIER_PATH = ('/Library/Application Support/JAMF/bin/Management '
+                         'Action.app/Contents/MacOS/Management Action')
 
     # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#notifier_sender_id
     NOTIFIER_SENDER_ID = CFPreferencesCopyAppValue('notifier_sender_id', 'uk.co.dataJAR.jamJAR')
@@ -599,7 +596,7 @@ if __name__ == "__main__":
     # Check if ManagedInstallReport exists
     INSTALL_REPORT_PLIST = f'{MANAGED_INSTALL_DIR}/ManagedInstallReport.plist'
     if not os.path.exists(INSTALL_REPORT_PLIST):
-        logging.warning('ManagedInstallReport is missing')
+        logging.info('ManagedInstallReport is missing, nothing to process. Exiting...')
         sys.exit(0)
     else:
         MANAGED_INSTALL_REPORT = {}
