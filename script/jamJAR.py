@@ -1,6 +1,6 @@
 #!/usr/local/munki/munki-python
 # encoding: utf-8
-# pylint: disable=invalid-name
+# pylint: disable = invalid-name
 '''
 Copyright (c) 2023, dataJAR Ltd.  All rights reserved.
 
@@ -45,10 +45,10 @@ __version__ = '2.1'
 import os
 import subprocess
 import sys
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable = import-error,no-name-in-module
 from CoreFoundation import (CFPreferencesCopyAppValue,
                             CFPreferencesGetAppIntegerValue)
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable = import-error,no-name-in-module
 from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 
