@@ -289,6 +289,7 @@ def process_pending(pending_items):
                 with open('/private/tmp/com.googlecode.munki.installatlogout', 'w',
                   encoding='utf-8') as trigger_file:
                     trigger_file.close()
+
     # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
     CFPreferencesSetValue('pending_count', pending_items, 'uk.co.dataJAR.jamJAR',
                           kCFPreferencesAnyUser, kCFPreferencesAnyHost)
