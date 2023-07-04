@@ -59,8 +59,9 @@ def main():
     '''
 
     # Get items details of items in the manifest
-    jamjar_installs = process_managed_installs()
-    jamjar_uninstalls = process_managed_uninstalls()
+    #jamjar_installs = process_managed_installs()
+    #jamjar_uninstalls = process_managed_uninstalls()
+    jamjar_installs, jamjar_uninstalls= process_manifest()
 
     # Processes parameters
     jamjar_installs, jamjar_uninstalls, yolo_mode = process_parameters(
@@ -72,6 +73,7 @@ def main():
     # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
     pending_count = CFPreferencesGetAppIntegerValue('PendingUpdateCount',
                                                     'ManagedInstalls', None)[0]
+
     # Update manifest
     update_client_manifest(jamjar_installs, jamjar_uninstalls)
 
@@ -99,23 +101,6 @@ def main():
 
 
 # Other functions
-def process_managed_installs():
-    '''
-        Returns a list of any managed_installs oj the manifest
-    '''
-    # Var declaration
-    jamjar_installs = []
-
-    # If any items are in the managed_installs array
-    if CLIENT_MANIFEST.get('managed_installs'):
-        # Add each item to the jamjar_installs list
-        for items in CLIENT_MANIFEST.get('managed_installs'):
-            jamjar_installs.append(items)
-
-    # Returns a list of managed_installs, with dupes removed
-    return list(set(jamjar_installs))
-
-
 def process_managed_install_report():
     '''
         Processes ManagedInstallReport.plist
@@ -136,21 +121,40 @@ def process_managed_install_report():
     return managed_install_report
 
 
-def process_managed_uninstalls():
+def process_manifest():
     '''
-        Returns a list of any managed_uninstalls oj the manifest
+       Read in manifest, returning managed_installs and managed_uninstalls.
     '''
+
     # Var declaration
+    client_manifest = {}
+    jamjar_installs = []
     jamjar_uninstalls = []
 
-    # If any items are in the managed_uninstalls array
-    if CLIENT_MANIFEST.get('managed_uninstalls'):
-        # Add each item to the jamjar_uninstalls list
-        for items in CLIENT_MANIFEST.get('managed_uninstalls'):
-            jamjar_uninstalls.append(items)
+    # If LocalOnlyManifest is declared, but does not exist exit.
+    if os.path.exists(f'{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}'):
+        # If LocalOnlyManifest exists, try to read it
+        try:
+            client_manifest = FoundationPlist.readPlist(
+                                                    f'{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}')
+        except FoundationPlist.NSPropertyListSerializationException:
+            print("ERROR: Cannot read f'{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}")
+            sys.exit(1)
 
-    # Returns a list of managed_uninstalls, with dupes removed
-    return list(set(jamjar_uninstalls))
+    # If any items are in the managed_installs array
+    if client_manifest.get('managed_installs'):
+        # Add each item to the jamjar_installs list
+        for managed_install in client_manifest.get('managed_installs'):
+            jamjar_installs.append(managed_install)
+
+    # If any items are in the managed_uninstalls array
+    if client_manifest.get('managed_uninstalls'):
+        # Add each item to the jamjar_uninstalls list
+        for managed_uninstall in client_manifest.get('managed_uninstalls'):
+            jamjar_uninstalls.append(managed_uninstall)
+
+    # Return jamjar_installs and jamjar_installs
+    return jamjar_installs, jamjar_uninstalls
 
 
 def process_parameters(jamjar_installs, jamjar_uninstalls):
@@ -170,28 +174,28 @@ def process_parameters(jamjar_installs, jamjar_uninstalls):
         # Split at ,
         installs_to_add = sys.argv[4]
         # Process to add to jamjar_installs
-        process_parameter_4(installs_to_add, jamjar_installs)
+        jamjar_installs = process_parameter_4(installs_to_add, jamjar_installs)
 
     # If something has been passed to $5
     if sys.argv[5] != '':
         # Split at ,
         installs_to_remove = sys.argv[5]
         # Process to add to jamjar_installs
-        process_parameter_5(installs_to_remove, jamjar_installs)
+        jamjar_installs = process_parameter_5(installs_to_remove, jamjar_installs)
 
     # If something has been passed to $6
     if sys.argv[6] != '':
         # Split at ,
         uninstalls_to_add = sys.argv[6]
         # Process to add to jamjar_uninstalls
-        process_parameter_6(jamjar_uninstalls, uninstalls_to_add)
+        jamjar_uninstalls = process_parameter_6(jamjar_uninstalls, uninstalls_to_add)
 
     # If something has been passed to $7
     if sys.argv[7] != '':
         # Split at ,
         uninstalls_to_remove = sys.argv[7]
         # Process to add to jamjar_uninstalls
-        process_parameter_7(jamjar_uninstalls, uninstalls_to_remove)
+        jamjar_uninstalls = process_parameter_7(jamjar_uninstalls, uninstalls_to_remove)
 
     # Set yolo_mode, if ENGAGE passed to $8
     if sys.argv[8] == 'ENGAGE':
@@ -231,7 +235,7 @@ def process_parameter_5(installs_to_remove, jamjar_installs):
         # Try to remove
         try:
             jamjar_installs.remove(install_to_remove)
-            print(f"Removed {install_to_remove} to installs")
+            print(f"Removed {install_to_remove} from installs")
         except ValueError:
             print(f"{install_to_remove} not in installs")
 
@@ -263,7 +267,7 @@ def process_parameter_7(jamjar_uninstalls, uninstalls_to_remove):
         # Try to remove
         try:
             jamjar_uninstalls.remove(uninstall_to_remove)
-            print(f"Removed {uninstall_to_remove} to uninstalls")
+            print(f"Removed {uninstall_to_remove} from uninstalls")
         except ValueError:
             print(f"{uninstall_to_remove} not in uninstalls")
 
@@ -407,8 +411,9 @@ def update_counts():
     '''
 
     # Get items details of items in the manifest
-    jamjar_installs = process_managed_installs()
-    jamjar_uninstalls = process_managed_uninstalls()
+    #jamjar_installs = process_managed_installs()
+    #jamjar_uninstalls = process_managed_uninstalls()
+    jamjar_installs, jamjar_uninstalls= process_manifest()
 
     # Get integer values of pending items in the ManagedInstalls & uk.co.dataJAR.jamJAR plists
     pending_count = CFPreferencesGetAppIntegerValue('PendingUpdateCount', 'ManagedInstalls',
@@ -476,27 +481,12 @@ if __name__ == "__main__":
         print('ERROR: Cannot get Managed Installs directory...')
         sys.exit(1)
 
-    # Make sure a LocalOnlyManifest is specified, then grab the name
+    # Make sure a LocalOnlyManifest is specified, exit if not declared
     MANIFEST = CFPreferencesCopyAppValue('LocalOnlyManifest', 'ManagedInstalls')
-
-    # Var declaration
-    CLIENT_MANIFEST = {}
-
-    # If no LocalOnlyManifest, then look for CLIENT_MANIFEST
     if MANIFEST is None:
         print("ERROR: No LocalOnlyManifest declared...")
         sys.exit(1)
-    # If LocalOnlyManifest is declared, but does not exist exit.
-    elif MANIFEST is not None and not os.path.exists(f'{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}'):
-        print(f"LocalOnlyManifest ({MANIFEST}) declared, but is missing.. will create")
-    else:
-        # If LocalOnlyManifest exists, try to read it
-        try:
-            CLIENT_MANIFEST = FoundationPlist.readPlist(
-                                                    f'{MANAGED_INSTALL_DIR}/manifests/{MANIFEST}')
-        except FoundationPlist.NSPropertyListSerializationException:
-            print("ERROR: Cannot read LocalOnlyManifest")
-            sys.exit(1)
+
 
     # Gimme some main
     main()
