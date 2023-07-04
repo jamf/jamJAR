@@ -2,7 +2,7 @@
 
 ####################################################################################################
 #
-# Copyright (c) 2021, dataJAR Ltd.  All rights reserved.
+# Copyright (c) 2023, dataJAR Ltd.  All rights reserved.
 #
 #       Redistribution and use in source and binary forms, with or without
 #       modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,7 @@
 ####################################################################################################
 #
 # CHANGE LOG
+# 2.1 - 2023-07-01 - Double quoted "${logFilePath}", to allow for spaces
 # 2.0 - 2021-10-02 - Rewritten in bash, to stop python prompts on macOS 12+
 #
 ####################################################################################################
@@ -78,7 +79,7 @@ fi
 
 if [ -f "${logFilePath}" ]
 then
-    /bin/echo "<result>$(/usr/bin/tail -n -1 ${logFilePath})</result>"
+    /bin/echo "<result>$(/usr/bin/tail -n -1 "${logFilePath}")</result>"
 else
     /bin/echo "<result></result>"
 fi
