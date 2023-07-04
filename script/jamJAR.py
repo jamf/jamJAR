@@ -116,6 +116,26 @@ def process_managed_installs():
     return list(set(jamjar_installs))
 
 
+def process_managed_install_report():
+    '''
+        Processes ManagedInstallReport.plist
+    '''
+
+    # Var declaration
+    managed_install_report = {}
+
+    # Generate path to ManagedInstallReport
+    install_report_plist = f'{MANAGED_INSTALL_DIR}/ManagedInstallReport.plist'
+
+    # If the path exists
+    if os.path.exists(install_report_plist):
+        # Read in the plist
+        managed_install_report = FoundationPlist.readPlist(install_report_plist)
+
+    # Return contents of ManagedInstallReport, if exists
+    return managed_install_report
+
+
 def process_managed_uninstalls():
     '''
         Returns a list of any managed_uninstalls oj the manifest
@@ -157,7 +177,7 @@ def process_parameters(jamjar_installs, jamjar_uninstalls):
         # Split at ,
         installs_to_remove = sys.argv[5]
         # Process to add to jamjar_installs
-        process_parameter_7(installs_to_remove, jamjar_installs)
+        process_parameter_5(installs_to_remove, jamjar_installs)
 
     # If something has been passed to $6
     if sys.argv[6] != '':
@@ -256,18 +276,21 @@ def process_uptodate():
         Give feedback that items are up-to-date.
     '''
 
+    # Get the latest version of ManagedInstallReport (if exists)
+    managed_install_report = process_managed_install_report()
+
     # If items have been installed
-    if os.path.exists(MANAGED_INSTALL_REPORT):
-        managed_install_report = {}
-        managed_install_report = FoundationPlist.readPlist(MANAGED_INSTALL_REPORT)
+    if managed_install_report:
         # If an item has updated, & Munki doesn't have a newer item.
         # The item will be added to InstalledItems
         if managed_install_report.get('InstalledItems'):
+            # Check each item
             for installed_item in managed_install_report.get('InstalledItems'):
-                for item in managed_install_report.get('ManagedInstalls'):
+                # Check the name against items in the ManagedInstalls array
+                for managed_install in managed_install_report.get('ManagedInstalls'):
                     # If we have a match, notify the user
-                    if item['name'] == installed_item:
-                        send_installed_uptodate(item['display_name'])
+                    if managed_install['name'] == installed_item:
+                        send_installed_uptodate(managed_install['display_name'])
 
 
 def process_warnings():
@@ -275,8 +298,11 @@ def process_warnings():
         Return number of warnings.
     '''
 
+    # Get the latest version of ManagedInstallReport (if exists)
+    managed_install_report = process_managed_install_report()
+
     # Return number of warning items
-    return len(MANAGED_INSTALL_REPORT.get('Warnings', []))
+    return len(managed_install_report.get('Warnings', []))
 
 
 def run_managedsoftwareupdate_auto():
@@ -388,9 +414,8 @@ def update_counts():
     pending_count = CFPreferencesGetAppIntegerValue('PendingUpdateCount', 'ManagedInstalls',
                                                     None)[0]
 
-    # If ManagedInstallReport exists, process warnings
-    if os.path.exists(INSTALL_REPORT_PLIST):
-        warning_count = process_warnings()
+    # Get number of warning items
+    warning_count = process_warnings()
 
     # Postflight policy text
     print(f"Postflight: Contains {len(jamjar_installs)} installs {jamjar_installs}, "
@@ -451,12 +476,6 @@ if __name__ == "__main__":
         print('ERROR: Cannot get Managed Installs directory...')
         sys.exit(1)
 
-    # Check if ManagedInstallReport exists
-    INSTALL_REPORT_PLIST = f'{MANAGED_INSTALL_DIR}/ManagedInstallReport.plist'
-    if os.path.exists(INSTALL_REPORT_PLIST):
-        MANAGED_INSTALL_REPORT = {}
-        MANAGED_INSTALL_REPORT = FoundationPlist.readPlist(INSTALL_REPORT_PLIST)
-
     # Make sure a LocalOnlyManifest is specified, then grab the name
     MANIFEST = CFPreferencesCopyAppValue('LocalOnlyManifest', 'ManagedInstalls')
 
@@ -478,7 +497,6 @@ if __name__ == "__main__":
         except FoundationPlist.NSPropertyListSerializationException:
             print("ERROR: Cannot read LocalOnlyManifest")
             sys.exit(1)
-
 
     # Gimme some main
     main()
