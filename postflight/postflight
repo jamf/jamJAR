@@ -88,13 +88,13 @@ def main():
 
     # Get items in the LocalOnlyManifests managed_installs array
     if CLIENT_MANIFEST.get('managed_installs'):
-        for items in CLIENT_MANIFEST.get('managed_installs'):
-            jamjar_installs.append(items)
+        for install_item in CLIENT_MANIFEST.get('managed_installs'):
+            jamjar_installs.append(install_item)
 
     # Get items in the LocalOnlyManifests managed_uninstalls array
     if CLIENT_MANIFEST.get('managed_uninstalls'):
-        for items in CLIENT_MANIFEST.get('managed_uninstalls'):
-            jamjar_uninstalls.append(items)
+        for uninstall_item in CLIENT_MANIFEST.get('managed_uninstalls'):
+            jamjar_uninstalls.append(uninstall_item)
 
     # Process installs, uninstalls & pending items.. via their functions & log
     jamjar_installs, installed_items = process_installs(jamjar_installs, installed_items)
@@ -202,19 +202,29 @@ def process_installs(jamjar_installs, installed_items):
     # Check to make sure that we have installs pending, notify if installed & remove
     # from jamjar_installs, & increment count
     if jamjar_installs:
+        # If items have been installed
         if MANAGED_INSTALL_REPORT.get('InstallResults'):
-            for item in MANAGED_INSTALL_REPORT.get('InstallResults'):
-                if item['status'] == 0 and item['name'] in jamjar_installs:
-                    for _ in MANAGED_INSTALL_REPORT.get('ManagedInstalls'):
-                        send_installed_notification(item['display_name'], item['version'])
-                    jamjar_installs.remove(item['name'])
+            # For each item in the MANAGED_INSTALL_REPORT's InstallResults array
+            for installed_item in MANAGED_INSTALL_REPORT.get('InstallResults'):
+                # If the item exists in jamjar and was successfully installed
+                if installed_item['status'] == 0 and installed_item['name'] in jamjar_installs:
+                    # Notify installed
+                    send_installed_notification(installed_item['display_name'],
+                                                installed_item['version'])
+                    # Remove from jamjar_installs
+                    jamjar_installs.remove(installed_item['name'])
+                    # Update count
                     installed_items += 1
+
         # If Munki doesn't have a newer item, it can be found in InstalledItems.
         # Remove from jamjar_installs but do not notify
         if MANAGED_INSTALL_REPORT.get('InstalledItems'):
-            for item in MANAGED_INSTALL_REPORT.get('InstalledItems'):
-                if item in jamjar_installs:
-                    jamjar_installs.remove(item)
+            # For each item in the MANAGED_INSTALL_REPORT's InstallItems array
+            for some_item in MANAGED_INSTALL_REPORT.get('InstalledItems'):
+                # If the item exists in jamjar_installs
+                if some_item in jamjar_installs:
+                    # Remove from jamjar_installs
+                    jamjar_installs.remove(some_item)
 
     # Return the items pending install, and the number of items installed
     return (jamjar_installs, installed_items)
@@ -540,7 +550,7 @@ if __name__ == "__main__":
         DATAJAR_NOTIFIER = False
 
     # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#datajar_notifier_logout_button
-    DATAJAR_NOTIFIER_LOGOUT_BUTTON = CFPreferencesCopyAppValue('datajar_notifier_logout_button', \
+    DATAJAR_NOTIFIER_LOGOUT_BUTTON = CFPreferencesCopyAppValue('datajar_notifier_logout_button',
                                                                          'uk.co.dataJAR.jamJAR')
     if DATAJAR_NOTIFIER_LOGOUT_BUTTON is None:
         DATAJAR_NOTIFIER_LOGOUT_BUTTON = 'Logout'
@@ -563,7 +573,7 @@ if __name__ == "__main__":
         NOTIFIER_MSG_NOPENDING = 'No updates pending'
 
     # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#notifier_msg_osupdatespending
-    NOTIFIER_MSG_OSUPDATESPENDING = CFPreferencesCopyAppValue('notifier_msg_osupdatespending', \
+    NOTIFIER_MSG_OSUPDATESPENDING = CFPreferencesCopyAppValue('notifier_msg_osupdatespending',
                                                                        'uk.co.dataJAR.jamJAR')
     if NOTIFIER_MSG_OSUPDATESPENDING is None:
         NOTIFIER_MSG_OSUPDATESPENDING = 'macOS Updates available. Click here for more details'
