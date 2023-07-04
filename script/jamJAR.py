@@ -180,7 +180,7 @@ def process_parameters(jamjar_installs, jamjar_uninstalls):
     # Check that we have some values passed to the parameters.. exit if not
     if (installs_to_add is None and installs_to_remove is None and uninstalls_to_add is None
             and uninstalls_to_remove is None and yolo_mode is None):
-        print("Nothing assigned to $4, $7, $6. $7 or $8... exiting...")
+        print("Nothing assigned to $4, $7, $6, $7 or $8... exiting...")
         sys.exit(1)
 
     # Values for the processed variables
