@@ -235,19 +235,28 @@ def process_pending_apple_updates(pending_apple_updates):
         Process pending Apple updates for macOS 10.14+ only.
     '''
 
+    # The username of the logged in user
+    username = get_username()
+
     # Get integer values of pending items in the uk.co.dataJAR.jamJAR plist
     last_apple_pending_count = CFPreferencesGetAppIntegerValue('apple_update_pending_count',
                                                                'uk.co.dataJAR.jamJAR', None)[0]
 
-    # Only process if UnattendedAppleUpdates is set to true
-    if CFPreferencesCopyAppValue('UnattendedAppleUpdates', 'ManagedInstalls'):
+    # Get any unattended apple updates from ManagedInstalls
+    unattended_apple_updates = CFPreferencesCopyAppValue('UnattendedAppleUpdates',
+                                                         'ManagedInstalls')
+
+    # Only process if UnattendedAppleUpdates is set to true, we're logged
+    # and using the dataJAR notifier
+    if DATAJAR_NOTIFIER and unattended_apple_updates and username:
         # If we have more no pending updates & did last time, tidy up
-        if pending_apple_updates == 0 and last_apple_pending_count > pending_apple_updates:
+        if (pending_apple_updates == 0 and last_apple_pending_count > 0):
             send_pending_apple_update_notification(True)
-        # If we have more pending updates than last run or we have pending updates &
-        # are using the dataJAR Notifier, post notification
-        if (pending_apple_updates > last_apple_pending_count or
-                pending_apple_updates > 0 and DATAJAR_NOTIFIER):
+        # If we have more pending updates than last run, post notification
+        elif pending_apple_updates > last_apple_pending_count:
+            send_pending_apple_update_notification(False)
+        # If we're to notify whenever updates are pending
+        elif pending_apple_updates > 0 and DATAJAR_NOTIFIER_ALWAYS_PENDING_NOTIFY:
             send_pending_apple_update_notification(False)
 
     # Update pending_count in /Library/Preferences/uk.co.dataJAR.jamJAR.plist
@@ -270,32 +279,56 @@ def process_pending(pending_items):
 
     # If we have more pending updates than last run
     if pending_items > last_pending_count:
+        # Post notification, don't clear prior
         send_pending_notification(False)
+        # Create /private/tmp/com.googlecode.munki.installatlogout if missing, to trigger
+        # munki t install when at the loginwindow
         if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             with open('/private/tmp/com.googlecode.munki.installatlogout', 'w',
               encoding='utf-8') as trigger_file:
                 trigger_file.close()
     # If we have more no pending updates & did last time, tidy up
     elif pending_items == 0 and last_pending_count > pending_items:
+        # Wait befor next steps
         time.sleep(10)
+        # Post notification, clearing prior
         send_pending_notification(True)
+        # Delete /private/tmp/com.googlecode.munki.installatlogout, if exists
         if os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
     # If we have more no pending updates, tidy up
     elif pending_items == 0:
+        # Delete /private/tmp/com.googlecode.munki.installatlogout, if exists
         if os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             os.unlink('/private/tmp/com.googlecode.munki.installatlogout')
-    # If we have pending updates & are using the dataJAR Notifier and we're logged in,
-    # then post a notification
-    elif (pending_items > 0 and DATAJAR_NOTIFIER) and username:
+    # If we have pending updates, we're to notify whenever there is anything pending &
+    # are using the dataJAR Notifier and we're logged in, then post a notification
+    elif (pending_items > 0 and DATAJAR_NOTIFIER and username and
+          DATAJAR_NOTIFIER_ALWAYS_PENDING_NOTIFY):
+        # Post notification, don't clear prior
         send_pending_notification(False)
+        # Create /private/tmp/com.googlecode.munki.installatlogout if missing, to trigger
+        # munki t install when at the loginwindow
+        if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
+            with open('/private/tmp/com.googlecode.munki.installatlogout', 'w',
+              encoding='utf-8') as trigger_file:
+                trigger_file.close()
+    # If we're to only notify on pending when more items are pending that prior
+    elif (pending_items > last_pending_count and not DATAJAR_NOTIFIER_ALWAYS_PENDING_NOTIFY):
+        # Post notification, don't clear prior
+        send_pending_notification(False)
+        # Create /private/tmp/com.googlecode.munki.installatlogout if missing, to trigger
+        # munki t install when at the loginwindow
         if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
             with open('/private/tmp/com.googlecode.munki.installatlogout', 'w',
               encoding='utf-8') as trigger_file:
                 trigger_file.close()
     # Create munki trigger file as we have pending items
     else:
+        # If we're logged in
         if username:
+            # Create /private/tmp/com.googlecode.munki.installatlogout if missing, to trigger
+            # munki t install when at the loginwindow
             if not os.path.exists('/private/tmp/com.googlecode.munki.installatlogout'):
                 with open('/private/tmp/com.googlecode.munki.installatlogout', 'w',
                   encoding='utf-8') as trigger_file:
@@ -548,6 +581,13 @@ if __name__ == "__main__":
     DATAJAR_NOTIFIER = CFPreferencesCopyAppValue('datajar_notifier', 'uk.co.dataJAR.jamJAR')
     if DATAJAR_NOTIFIER is None:
         DATAJAR_NOTIFIER = False
+
+    # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#datajar_notifier_always_pending_notify
+    DATAJAR_NOTIFIER_ALWAYS_PENDING_NOTIFY = CFPreferencesCopyAppValue(
+                                                          'datajar_notifier_always_pending_notify',
+                                                                            'uk.co.dataJAR.jamJAR')
+    if DATAJAR_NOTIFIER_ALWAYS_PENDING_NOTIFY is None:
+        DATAJAR_NOTIFIER_ALWAYS_PENDING_NOTIFY = True
 
     # https://github.com/dataJAR/jamJAR/wiki/jamJAR-Preferences#datajar_notifier_logout_button
     DATAJAR_NOTIFIER_LOGOUT_BUTTON = CFPreferencesCopyAppValue('datajar_notifier_logout_button',
