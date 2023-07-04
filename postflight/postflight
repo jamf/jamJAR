@@ -417,6 +417,8 @@ def send_pending_apple_update_notification(clear_prior_msg):
         #    item_name  - example: OracleJava8
         #    item_display_name - example: Oracle Java 8
         #    item_version - example: 1.8.111.14
+        
+        # If using the dataJAR notifier
         if DATAJAR_NOTIFIER:
             # If we're to clear the prior message
             if clear_prior_msg:
@@ -472,6 +474,7 @@ def send_pending_notification(clear_prior_msg):
                                                          f'--title "{NOTIFIER_MSG_TITLE}" '
                                      f'--messagebutton "{DATAJAR_NOTIFIER_LOGOUT_BUTTON}" '
                                                             '--messagebuttonaction logout '
+                                                                            '--type alert '
                                                                           '--remove prior']
                 # Clear prior message
                 subprocess.call(notifier_args, close_fds=True)
@@ -479,7 +482,8 @@ def send_pending_notification(clear_prior_msg):
                 notifier_args = ['/usr/bin/su', '-l', username, '-c', f'"{NOTIFIER_PATH}" '
                                                  f'--messageaction "{NOTIFIER_SENDER_ID}" '
                                                    f'--message "{NOTIFIER_MSG_NOPENDING}" '
-                                                        f'--title "{NOTIFIER_MSG_TITLE}" ']
+                                                         f'--title "{NOTIFIER_MSG_TITLE}" '
+                                                                          '--type banner ']
             # If not clearing, just post pending
             else:
                 # Build the notifier_args array to notify of pending
@@ -488,7 +492,8 @@ def send_pending_notification(clear_prior_msg):
                                                      f'--message "{NOTIFIER_MSG_PENDING}" '
                                                          f'--title "{NOTIFIER_MSG_TITLE}" '
                                      f'--messagebutton "{DATAJAR_NOTIFIER_LOGOUT_BUTTON}" '
-                                                           '--messagebuttonaction logout ']
+                                                            '--messagebuttonaction logout '
+                                                                           '--type alert ']
         # If not using the dataJAR Notifier
         else:
             notifier_args = ['/usr/bin/su', '-l', username, '-c', f'"{NOTIFIER_PATH}" '
