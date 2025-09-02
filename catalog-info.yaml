@@ -1,11 +1,16 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: datajar
   annotations:
     sonarqube.org/project-key: com.jamf.team-red-dawg:jamJAR
+  description: jamJAR is the open source project, that leverages some of the same workflows as Jamf Auto Update.
+  name: jamjar
+  tags:
+    - datajar
+    - autoupdate
 spec:
-  type: service
-  owner: datajar
+  type: application
   lifecycle: production
-  system: datajar
+  owner: zubry
+  system: jamf-auto-update
+  serviceTier: 5
